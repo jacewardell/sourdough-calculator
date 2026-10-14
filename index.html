@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sourdough Calculator</title>
+<meta name="description" content="Scale a sourdough recipe by loaf weight and count, with baker's percentages and true hydration.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4ebdc;
+  --surface: #fffaf1;
+  --surface-2: #f9f1e3;
+  --ink: #2a1c11;
+  --muted: #7d6a57;
+  --line: #e3d4bd;
+  --crust: #b4552a;
+  --crust-ink: #fff5ec;
+  --flour: #d9a441;
+  --water: #4a8bc2;
+  --starter: #b4552a;
+  --salt: #9aa5b1;
+  --warn: #b23b3b;
+  --shadow: 0 1px 2px rgb(60 35 10 / .06), 0 12px 32px -12px rgb(60 35 10 / .18);
+  --radius: 18px;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17120d;
+    --surface: #221a13;
+    --surface-2: #2b2118;
+    --ink: #f3e8d8;
+    --muted: #a9957f;
+    --line: #3b2e22;
+    --crust: #e07a46;
+    --crust-ink: #1d120a;
+    --flour: #e3b254;
+    --water: #63a3d8;
+    --starter: #e07a46;
+    --salt: #a7b1bc;
+    --warn: #e36a6a;
+    --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 16px 40px -16px rgb(0 0 0 / .6);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17120d; --surface: #221a13; --surface-2: #2b2118; --ink: #f3e8d8; --muted: #a9957f;
+  --line: #3b2e22; --crust: #e07a46; --crust-ink: #1d120a; --flour: #e3b254; --water: #63a3d8;
+  --starter: #e07a46; --salt: #a7b1bc; --warn: #e36a6a;
+  --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 16px 40px -16px rgb(0 0 0 / .6);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  background-image: radial-gradient(1200px 500px at 50% -10%, rgb(217 164 65 / .18), transparent 70%);
+  color: var(--ink);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-height: 100dvh;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: clamp(24px, 5vw, 56px) 16px 64px; }
+
+header { text-align: center; margin-bottom: clamp(24px, 4vw, 40px); }
+h1 {
+  font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: clamp(34px, 6vw, 56px);
+  letter-spacing: -.02em; line-height: 1.05; margin: 0 0 10px;
+}
+h1 em { font-style: italic; color: var(--crust); font-weight: 500; }
+header p { margin: 0; color: var(--muted); font-size: 15px; }
+
+.grid { display: grid; gap: 20px; grid-template-columns: 1fr; }
+@media (min-width: 860px) { .grid { grid-template-columns: 380px 1fr; align-items: start; } }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.card h2 {
+  font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 20px; margin: 0;
+  padding: 18px 22px 0; letter-spacing: -.01em;
+}
+
+/* Inputs */
+.inputs { padding-bottom: 8px; }
+.field { padding: 16px 22px; border-bottom: 1px solid var(--line); }
+.field:last-of-type { border-bottom: 0; }
+.field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+label, .field-label { font-weight: 600; font-size: 14px; }
+.hint { color: var(--muted); font-size: 12px; }
+.num {
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 15px; font-weight: 600;
+  width: 96px; padding: 8px 10px; text-align: right;
+  background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.num::-webkit-outer-spin-button, .num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.num:focus { outline: 2px solid var(--crust); outline-offset: 1px; border-color: transparent; }
+.unit { color: var(--muted); font-size: 13px; margin-left: 6px; }
+.row { display: flex; align-items: center; gap: 12px; }
+
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); overflow: hidden; }
+.stepper button {
+  width: 40px; height: 40px; border: 0; background: transparent; color: var(--ink); font-size: 20px; cursor: pointer;
+}
+.stepper button:hover { background: var(--line); }
+.stepper .num { width: 56px; border: 0; border-radius: 0; text-align: center; background: transparent; }
+
+input[type=range] { width: 100%; accent-color: var(--crust); margin: 8px 0 0; }
+
+.derived { background: var(--surface-2); margin: 6px 14px 10px; border-radius: 12px; padding: 12px 10px; border: 1px dashed var(--line); }
+.derived .field-head { margin: 0; }
+.derived .value { font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 600; }
+.derived.bad .value { color: var(--warn); }
+
+.actions { padding: 6px 22px 14px; display: flex; justify-content: flex-end; }
+.btn {
+  border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 999px;
+  padding: 6px 14px; font-size: 13px; cursor: pointer;
+}
+.btn:hover { color: var(--ink); border-color: var(--muted); }
+
+/* Results */
+.results { display: grid; gap: 20px; }
+.tiles { display: grid; gap: 14px; grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 480px) { .tiles { grid-template-columns: 1fr 1fr; } .tiles .tile:first-child { grid-column: span 2; } }
+.tile { padding: 18px 20px; }
+.tile .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+.tile .v { font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: clamp(28px, 4vw, 40px); letter-spacing: -.02em; line-height: 1.1; margin-top: 4px; }
+.tile .v small { font-size: .5em; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.tile.hero { background: var(--crust); color: var(--crust-ink); border-color: transparent; }
+.tile.hero .k, .tile.hero .v small { color: inherit; opacity: .8; }
+.tile .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.tile.hero .sub { color: inherit; opacity: .8; }
+
+.bar-wrap { padding: 18px 22px 20px; }
+.bar { display: flex; height: 26px; border-radius: 8px; overflow: hidden; margin: 12px 0 10px; background: var(--line); }
+.bar span { transition: flex-basis .25s ease; min-width: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.c-flour { background: var(--flour); } .c-water { background: var(--water); } .c-starter { background: var(--starter); } .c-salt { background: var(--salt); }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px 16px; text-align: right; border-top: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; border-top: 0; }
+th:first-child, td:first-child { text-align: left; padding-left: 22px; }
+th:last-child, td:last-child { padding-right: 22px; }
+td { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 15px; }
+td:first-child { font-family: inherit; font-weight: 600; }
+td.g { font-weight: 600; }
+tfoot td { color: var(--muted); font-size: 13px; background: var(--surface-2); }
+tfoot td:first-child { color: var(--ink); }
+.table-card { overflow-x: auto; }
+.table-card h2 { padding-bottom: 10px; }
+@media (max-width: 600px) { th, td { padding: 10px 10px; } td { font-size: 14px; } th:first-child, td:first-child { padding-left: 16px; } th:last-child, td:last-child { padding-right: 16px; } }
+
+.note { color: var(--muted); font-size: 13px; padding: 0 4px; line-height: 1.6; }
+.warn { display: none; color: var(--warn); font-size: 13px; padding: 8px 22px 0; font-weight: 600; }
+body.invalid .warn { display: block; }
+body.invalid .results { opacity: .45; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Sourdough <em>Calculator</em></h1>
+    <p>Set your loaf size and percentages. The rest is arithmetic.</p>
+  </header>
+
+  <div class="grid">
+    <section class="card inputs" aria-label="Inputs">
+      <h2>Recipe</h2>
+
+      <div class="field">
+        <div class="field-head"><label for="loafGrams">Loaf weight</label><span class="hint">grams per loaf</span></div>
+        <div class="row"><input class="num" id="loafGrams" type="number" min="1" step="10" inputmode="decimal"><span class="unit">g</span></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head"><label for="loafCount">Loaves</label><span class="hint">how many to bake</span></div>
+        <div class="stepper">
+          <button type="button" data-step="-1" aria-label="Fewer loaves">&minus;</button>
+          <input class="num" id="loafCount" type="number" min="1" step="1" inputmode="numeric">
+          <button type="button" data-step="1" aria-label="More loaves">+</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-head"><label for="flourPct">Flour</label><span class="hint">% of total dough</span></div>
+        <div class="row"><input class="num" id="flourPct" type="number" min="0" max="100" step="0.1" inputmode="decimal"><span class="unit">%</span></div>
+        <input type="range" data-for="flourPct" min="30" max="70" step="0.1" aria-label="Flour percent slider">
+      </div>
+
+      <div class="field">
+        <div class="field-head"><label for="starterPct">Starter</label><span class="hint">% of total dough</span></div>
+        <div class="row"><input class="num" id="starterPct" type="number" min="0" max="100" step="0.1" inputmode="decimal"><span class="unit">%</span></div>
+        <input type="range" data-for="starterPct" min="0" max="30" step="0.1" aria-label="Starter percent slider">
+      </div>
+
+      <div class="field">
+        <div class="field-head"><label for="saltPct">Salt</label><span class="hint">% of total dough</span></div>
+        <div class="row"><input class="num" id="saltPct" type="number" min="0" max="100" step="0.01" inputmode="decimal"><span class="unit">%</span></div>
+        <input type="range" data-for="saltPct" min="0" max="3" step="0.01" aria-label="Salt percent slider">
+      </div>
+
+      <div class="derived" id="waterBox">
+        <div class="field-head"><span class="field-label">Water</span><span class="value" id="waterPct">&nbsp;</span></div>
+        <div class="hint">Whatever is left after flour, starter and salt</div>
+      </div>
+
+      <div class="warn">Flour, starter and salt add up to more than 100%. Lower one of them.</div>
+
+      <div class="actions"><button class="btn" id="reset" type="button">Reset to defaults</button></div>
+    </section>
+
+    <section class="results" aria-label="Results" aria-live="polite">
+      <div class="tiles">
+        <div class="card tile hero">
+          <div class="k">Hydration</div>
+          <div class="v" id="hydration">&nbsp;</div>
+          <div class="sub">counting half the starter as water</div>
+        </div>
+        <div class="card tile">
+          <div class="k">Total dough</div>
+          <div class="v" id="total">&nbsp;</div>
+          <div class="sub" id="perLoaf"></div>
+        </div>
+        <div class="card tile">
+          <div class="k">Baker's total</div>
+          <div class="v" id="bakersTotal">&nbsp;</div>
+          <div class="sub">flour = 100%</div>
+        </div>
+      </div>
+
+      <div class="card bar-wrap">
+        <h2 style="padding:0">Dough composition</h2>
+        <div class="bar" id="bar" role="img" aria-label="Dough composition by weight">
+          <span class="c-flour"></span><span class="c-water"></span><span class="c-starter"></span><span class="c-salt"></span>
+        </div>
+        <div class="legend" id="legend">
+          <span><i class="c-flour"></i>Flour <b data-k="flour"></b></span>
+          <span><i class="c-water"></i>Water <b data-k="water"></b></span>
+          <span><i class="c-starter"></i>Starter <b data-k="starter"></b></span>
+          <span><i class="c-salt"></i>Salt <b data-k="salt"></b></span>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <h2>Ingredients</h2>
+        <table>
+          <thead><tr><th>Ingredient</th><th>Total</th><th>Per loaf</th><th>Of dough</th><th>Baker's %</th></tr></thead>
+          <tbody id="rows"></tbody>
+          <tfoot><tr><td>Totals</td><td id="tTotal"></td><td id="tLoaf"></td><td>100%</td><td id="tBakers"></td></tr></tfoot>
+        </table>
+      </div>
+
+      <p class="note">Percentages are shares of the total dough weight. Baker's percentages are relative to the flour.
+      Hydration assumes a 100% hydration starter, so half its weight counts as flour and half as water.</p>
+    </section>
+  </div>
+</div>
+
+<script type="module">
+import { calc, defaults, keys } from './calc.js';
+
+const KEY = 'sourdough-calculator';
+const $ = id => document.getElementById(id);
+const fields = Object.keys(defaults);
+const names = { flour: 'Flour', water: 'Water', starter: 'Starter', salt: 'Salt' };
+
+const load = () => { try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...defaults }; } };
+const save = s => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+
+const g = n => n.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' g';
+const pct = n => (n * 100).toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
+
+let state = load();
+
+function render() {
+  const r = calc(state);
+  document.body.classList.toggle('invalid', !r.valid);
+
+  $('waterPct').textContent = pct(r.pct.water);
+  $('waterBox').classList.toggle('bad', r.pct.water < 0);
+
+  $('hydration').textContent = pct(r.hydration);
+  $('total').innerHTML = `${r.total.toLocaleString()}<small>g</small>`;
+  $('perLoaf').textContent = `${state.loafCount} × ${state.loafGrams.toLocaleString()} g`;
+  $('bakersTotal').textContent = pct(r.bakersTotal);
+
+  const segs = $('bar').children;
+  keys.forEach((k, i) => { segs[i].style.flex = `0 0 ${Math.max(0, r.pct[k]) * 100}%`; segs[i].title = `${names[k]} ${pct(r.pct[k])}`; });
+  for (const b of $('legend').querySelectorAll('b')) b.textContent = pct(r.pct[b.dataset.k]);
+
+  $('rows').innerHTML = keys.map(k => `<tr>
+    <td><i class="c-${k}" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px"></i>${names[k]}</td>
+    <td class="g">${g(r.grams[k])}</td>
+    <td>${g(r.grams[k] / state.loafCount)}</td>
+    <td>${pct(r.pct[k])}</td>
+    <td>${pct(r.bakers[k])}</td>
+  </tr>`).join('');
+  $('tTotal').textContent = g(r.total);
+  $('tLoaf').textContent = g(state.loafGrams);
+  $('tBakers').textContent = pct(r.bakersTotal);
+}
+
+function set(k, v) {
+  if (!Number.isFinite(v)) return;
+  state[k] = k === 'loafCount' ? Math.max(1, Math.round(v)) : Math.max(0, v);
+  sync(k);
+  save(state);
+  render();
+}
+
+function sync(k) {
+  const el = $(k);
+  if (document.activeElement !== el) el.value = state[k];
+  const range = document.querySelector(`[data-for="${k}"]`);
+  if (range) range.value = state[k];
+}
+
+for (const k of fields) {
+  $(k).addEventListener('input', e => set(k, parseFloat(e.target.value)));
+  $(k).addEventListener('blur', () => sync(k));
+}
+for (const r of document.querySelectorAll('input[type=range]'))
+  r.addEventListener('input', e => set(r.dataset.for, parseFloat(e.target.value)));
+for (const b of document.querySelectorAll('[data-step]'))
+  b.addEventListener('click', () => set('loafCount', state.loafCount + Number(b.dataset.step)));
+$('reset').addEventListener('click', () => { state = { ...defaults }; fields.forEach(sync); save(state); render(); });
+
+fields.forEach(sync);
+render();
+</script>
+</body>
+</html>
