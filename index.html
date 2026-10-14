@@ -154,7 +154,9 @@ tfoot td:first-child { color: var(--ink); }
 .note { color: var(--muted); font-size: 13px; padding: 0 4px; line-height: 1.6; }
 .warn { display: none; color: var(--warn); font-size: 13px; padding: 8px 22px 0; font-weight: 600; }
 body.invalid .warn { display: block; }
-body.invalid .results { opacity: .45; }
+body.invalid .results, body.empty .results { opacity: .45; }
+.empty-note { display: none; color: var(--muted); font-size: 13px; padding: 8px 22px 0; }
+body.empty .empty-note { display: block; }
 </style>
 </head>
 <body>
@@ -205,6 +207,7 @@ body.invalid .results { opacity: .45; }
         <div class="hint">Whatever is left after flour, starter and salt</div>
       </div>
 
+      <div class="empty-note">Fill in every field to see the recipe.</div>
       <div class="warn">Flour, starter and salt add up to more than 100%. Lower one of them.</div>
 
     </section>
@@ -246,7 +249,7 @@ body.invalid .results { opacity: .45; }
         <table>
           <thead><tr><th>Ingredient</th><th>Total</th><th>Per loaf</th><th>Of dough</th><th>Baker's %</th></tr></thead>
           <tbody id="rows"></tbody>
-          <tfoot><tr><td>Totals</td><td id="tTotal"></td><td id="tLoaf"></td><td>100%</td><td id="tBakers"></td></tr></tfoot>
+          <tfoot><tr><td>Totals</td><td id="tTotal"></td><td id="tLoaf"></td><td id="tPct"></td><td id="tBakers"></td></tr></tfoot>
         </table>
       </div>
 
@@ -258,21 +261,26 @@ body.invalid .results { opacity: .45; }
 
 <script src="calc.js"></script>
 <script>
-const { calc, defaults, keys } = globalThis.Sourdough;
+const { calc, fields, keys } = globalThis.Sourdough;
 
+const KEY = 'sourdough-calculator';
 const $ = id => document.getElementById(id);
-const fields = Object.keys(defaults);
 const names = { flour: 'Flour', water: 'Water', starter: 'Starter', salt: 'Salt' };
+const BLANK = ' ';
 
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
 
 const g = n => n.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' g';
 const pct = n => (n * 100).toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
 
-const state = { ...defaults };
+const state = load();
 
 function render() {
   const r = calc(state);
-  document.body.classList.toggle('invalid', !r.valid);
+  document.body.classList.toggle('invalid', !r.valid && r.ready);
+  document.body.classList.toggle('empty', !r.ready);
+  if (!r.ready) return renderBlank();
 
   $('waterPct').textContent = pct(r.pct.water);
   $('waterBox').classList.toggle('bad', r.pct.water < 0);
@@ -295,21 +303,35 @@ function render() {
   </tr>`).join('');
   $('tTotal').textContent = g(r.total);
   $('tLoaf').textContent = g(state.loafGrams);
+  $('tPct').textContent = '100%';
   $('tBakers').textContent = pct(r.bakersTotal);
 }
 
+function renderBlank() {
+  for (const id of ['waterPct', 'hydration', 'total', 'bakersTotal', 'perLoaf', 'tTotal', 'tLoaf', 'tPct', 'tBakers']) $(id).textContent = BLANK;
+  $('waterBox').classList.remove('bad');
+  for (const s of $('bar').children) s.style.flex = '0 0 0%';
+  for (const b of $('legend').querySelectorAll('b')) b.textContent = '';
+  $('rows').innerHTML = keys.map(k => `<tr>
+    <td><i class="c-${k}" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px"></i>${names[k]}</td>
+    <td class="g">${BLANK}</td><td>${BLANK}</td><td>${BLANK}</td><td>${BLANK}</td>
+  </tr>`).join('');
+}
+
 function set(k, v) {
-  if (!Number.isFinite(v)) return;
-  state[k] = k === 'loafCount' ? Math.max(1, Math.round(v)) : Math.max(0, v);
+  if (Number.isFinite(v)) state[k] = k === 'loafCount' ? Math.max(1, Math.round(v)) : Math.max(0, v);
+  else delete state[k];
   sync(k);
+  save();
   render();
 }
 
 function sync(k) {
+  const v = state[k] ?? '';
   const el = $(k);
-  if (document.activeElement !== el) el.value = state[k];
+  if (document.activeElement !== el) el.value = v;
   const range = document.querySelector(`[data-for="${k}"]`);
-  if (range) range.value = state[k];
+  if (range) range.value = v === '' ? range.min : v;
 }
 
 for (const k of fields) {
@@ -319,7 +341,7 @@ for (const k of fields) {
 for (const r of document.querySelectorAll('input[type=range]'))
   r.addEventListener('input', e => set(r.dataset.for, parseFloat(e.target.value)));
 for (const b of document.querySelectorAll('[data-step]'))
-  b.addEventListener('click', () => set('loafCount', state.loafCount + Number(b.dataset.step)));
+  b.addEventListener('click', () => set('loafCount', (state.loafCount ?? 0) + Number(b.dataset.step)));
 
 fields.forEach(sync);
 render();
