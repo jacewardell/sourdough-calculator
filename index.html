@@ -247,9 +247,9 @@ body.empty .empty-note { display: block; }
       <div class="card table-card">
         <h2>Ingredients</h2>
         <table>
-          <thead><tr><th>Ingredient</th><th>Total</th><th>Per loaf</th><th>Of dough</th><th>Baker's %</th></tr></thead>
+          <thead><tr><th>Ingredient</th><th>Total</th><th>Per loaf</th><th>Baker's %</th></tr></thead>
           <tbody id="rows"></tbody>
-          <tfoot><tr><td>Totals</td><td id="tTotal"></td><td id="tLoaf"></td><td id="tPct"></td><td id="tBakers"></td></tr></tfoot>
+          <tfoot><tr><td>Totals</td><td id="tTotal"></td><td id="tLoaf"></td><td id="tBakers"></td></tr></tfoot>
         </table>
       </div>
 
@@ -298,23 +298,21 @@ function render() {
     <td><i class="c-${k}" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px"></i>${names[k]}</td>
     <td class="g">${g(r.grams[k])}</td>
     <td>${g(r.grams[k] / state.loafCount)}</td>
-    <td>${pct(r.pct[k])}</td>
     <td>${pct(r.bakers[k])}</td>
   </tr>`).join('');
   $('tTotal').textContent = g(r.total);
   $('tLoaf').textContent = g(state.loafGrams);
-  $('tPct').textContent = '100%';
   $('tBakers').textContent = pct(r.bakersTotal);
 }
 
 function renderBlank() {
-  for (const id of ['waterPct', 'hydration', 'total', 'bakersTotal', 'perLoaf', 'tTotal', 'tLoaf', 'tPct', 'tBakers']) $(id).textContent = BLANK;
+  for (const id of ['waterPct', 'hydration', 'total', 'bakersTotal', 'perLoaf', 'tTotal', 'tLoaf', 'tBakers']) $(id).textContent = BLANK;
   $('waterBox').classList.remove('bad');
   for (const s of $('bar').children) s.style.flex = '0 0 0%';
   for (const b of $('legend').querySelectorAll('b')) b.textContent = '';
   $('rows').innerHTML = keys.map(k => `<tr>
     <td><i class="c-${k}" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px"></i>${names[k]}</td>
-    <td class="g">${BLANK}</td><td>${BLANK}</td><td>${BLANK}</td><td>${BLANK}</td>
+    <td class="g">${BLANK}</td><td>${BLANK}</td><td>${BLANK}</td>
   </tr>`).join('');
 }
 
