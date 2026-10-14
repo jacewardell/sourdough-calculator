@@ -8,11 +8,7 @@ and effective hydration, which counts half the starter as flour and half as wate
 
 ## Develop
 
-Open `index.html` through any static server (ES modules do not load from `file://`):
-
-```sh
-python3 -m http.server 8000
-```
+Open `index.html` in a browser. No server needed.
 
 ## Test
 

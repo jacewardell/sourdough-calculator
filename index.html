@@ -261,8 +261,9 @@ body.invalid .results { opacity: .45; }
   </div>
 </div>
 
-<script type="module">
-import { calc, defaults, keys } from './calc.js';
+<script src="calc.js"></script>
+<script>
+const { calc, defaults, keys } = globalThis.Sourdough;
 
 const KEY = 'sourdough-calculator';
 const $ = id => document.getElementById(id);

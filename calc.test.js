@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calc, defaults } from './calc.js';
+import './calc.js';
+const { calc, defaults } = globalThis.Sourdough;
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} !~ ${b}`);
 
