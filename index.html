@@ -99,7 +99,7 @@ h1 em { font-style: italic; color: var(--crust); font-weight: 500; }
   .inputs.collapsed #recipeBody { display: none; }
 }
 .field { padding: 16px 22px; border-bottom: 1px solid var(--line); }
-.field:last-of-type { border-bottom: 0; }
+.field:last-child { border-bottom: 0; }
 .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
 label, .field-label { font-weight: 600; font-size: 14px; }
 .hint { color: var(--muted); font-size: 12px; }
@@ -121,12 +121,19 @@ label, .field-label { font-weight: 600; font-size: 14px; }
 .stepper button:hover { background: var(--line); }
 .stepper .num { width: 56px; border: 0; border-radius: 0; text-align: center; background: transparent; }
 
+.seg {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 14px 22px 4px; padding: 4px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px;
+}
+.seg button {
+  border: 0; border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 600;
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+.seg button[aria-selected="true"] { background: var(--crust); color: var(--crust-ink); }
+.mode .field:first-child { border-top: 0; }
+
 input[type=range] { width: 100%; accent-color: var(--crust); margin: 8px 0 0; }
 
-.derived { background: var(--surface-2); margin: 6px 14px 10px; border-radius: 12px; padding: 12px 10px; border: 1px dashed var(--line); }
-.derived .field-head { margin: 0; }
-.derived .value { font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 600; }
-.derived.bad .value { color: var(--warn); }
 
 
 /* Results */
@@ -199,50 +206,69 @@ body.empty .empty-note { display: block; }
         </div>
       </div>
 
-      <div class="field">
-        <div class="field-head"><label for="flourPct">Flour</label><span class="hint">% of total dough</span></div>
-        <div class="row"><input class="num" id="flourPct" type="number" min="0" max="100" step="0.1" inputmode="decimal"><span class="unit">%</span></div>
-        <input type="range" data-for="flourPct" min="30" max="70" step="0.1" aria-label="Flour percent slider">
+      <div class="seg" role="tablist" aria-label="Percentage style">
+        <button type="button" role="tab" data-mode="bakers" aria-selected="true">Baker's %</button>
+        <button type="button" role="tab" data-mode="dough" aria-selected="false">Dough %</button>
       </div>
 
-      <div class="field">
-        <div class="field-head"><label for="starterPct">Starter</label><span class="hint">% of total dough</span></div>
-        <div class="row"><input class="num" id="starterPct" type="number" min="0" max="100" step="0.1" inputmode="decimal"><span class="unit">%</span></div>
-        <input type="range" data-for="starterPct" min="0" max="30" step="0.1" aria-label="Starter percent slider">
+      <div class="mode" data-mode="dough" role="tabpanel">
+        <div class="field">
+          <div class="field-head"><label for="d_flour">Flour</label><span class="hint">% of total dough</span></div>
+          <div class="row"><input class="num" id="d_flour" type="number" min="0" max="100" step="0.1" inputmode="decimal"><span class="unit">%</span></div>
+          <input type="range" data-for="d_flour" min="30" max="70" step="0.1" aria-label="Flour percent slider">
+        </div>
+        <div class="field">
+          <div class="field-head"><label for="d_starter">Starter</label><span class="hint">% of total dough</span></div>
+          <div class="row"><input class="num" id="d_starter" type="number" min="0" max="100" step="0.1" inputmode="decimal"><span class="unit">%</span></div>
+          <input type="range" data-for="d_starter" min="0" max="30" step="0.1" aria-label="Starter percent slider">
+        </div>
+        <div class="field">
+          <div class="field-head"><label for="d_salt">Salt</label><span class="hint">% of total dough</span></div>
+          <div class="row"><input class="num" id="d_salt" type="number" min="0" max="100" step="0.01" inputmode="decimal"><span class="unit">%</span></div>
+          <input type="range" data-for="d_salt" min="0" max="3" step="0.01" aria-label="Salt percent slider">
+        </div>
+        <div class="warn">Flour, starter and salt add up to more than 100%. Lower one of them.</div>
       </div>
 
-      <div class="field">
-        <div class="field-head"><label for="saltPct">Salt</label><span class="hint">% of total dough</span></div>
-        <div class="row"><input class="num" id="saltPct" type="number" min="0" max="100" step="0.01" inputmode="decimal"><span class="unit">%</span></div>
-        <input type="range" data-for="saltPct" min="0" max="3" step="0.01" aria-label="Salt percent slider">
-      </div>
-
-      <div class="derived" id="waterBox">
-        <div class="field-head"><span class="field-label">Water</span><span class="value" id="waterPct">&nbsp;</span></div>
-        <div class="hint">Whatever is left after flour, starter and salt</div>
+      <div class="mode" data-mode="bakers" role="tabpanel" hidden>
+        <div class="field">
+          <div class="field-head"><label for="b_hydration">Hydration</label><span class="hint">water as % of flour</span></div>
+          <div class="row"><input class="num" id="b_hydration" type="number" min="0" max="200" step="0.1" inputmode="decimal"><span class="unit">%</span></div>
+          <input type="range" data-for="b_hydration" min="50" max="100" step="0.1" aria-label="Hydration slider">
+        </div>
+        <div class="field">
+          <div class="field-head"><label for="b_starter">Starter</label><span class="hint">% of flour</span></div>
+          <div class="row"><input class="num" id="b_starter" type="number" min="0" max="200" step="0.1" inputmode="decimal"><span class="unit">%</span></div>
+          <input type="range" data-for="b_starter" min="0" max="50" step="0.1" aria-label="Starter percent slider">
+        </div>
+        <div class="field">
+          <div class="field-head"><label for="b_salt">Salt</label><span class="hint">% of flour</span></div>
+          <div class="row"><input class="num" id="b_salt" type="number" min="0" max="100" step="0.1" inputmode="decimal"><span class="unit">%</span></div>
+          <input type="range" data-for="b_salt" min="0" max="4" step="0.1" aria-label="Salt percent slider">
+        </div>
+        <div class="warn">That much starter already carries more water than the hydration allows. Raise hydration or lower starter.</div>
       </div>
 
       <div class="empty-note">Fill in every field to see the recipe.</div>
-      <div class="warn">Flour, starter and salt add up to more than 100%. Lower one of them.</div>
       </div>
     </section>
 
     <section class="results" aria-label="Results" aria-live="polite">
       <div class="tiles">
         <div class="card tile hero">
-          <div class="k">Hydration</div>
-          <div class="v" id="hydration">&nbsp;</div>
-          <div class="sub">counting half the starter as water</div>
-        </div>
-        <div class="card tile">
           <div class="k">Total dough</div>
           <div class="v" id="total">&nbsp;</div>
           <div class="sub" id="perLoaf"></div>
         </div>
         <div class="card tile">
-          <div class="k">Baker's total</div>
-          <div class="v" id="bakersTotal">&nbsp;</div>
-          <div class="sub">flour = 100%</div>
+          <div class="k">Flour</div>
+          <div class="v" id="flourG">&nbsp;</div>
+          <div class="sub" id="flourSub"></div>
+        </div>
+        <div class="card tile">
+          <div class="k">Water</div>
+          <div class="v" id="waterG">&nbsp;</div>
+          <div class="sub" id="waterSub"></div>
         </div>
       </div>
 
@@ -268,43 +294,48 @@ body.empty .empty-note { display: block; }
         </table>
       </div>
 
-      <p class="note">Percentages are shares of the total dough weight. Baker's percentages are relative to the flour.
-      Hydration assumes a 100% hydration starter, so half its weight counts as flour and half as water.</p>
+      <p class="note" id="note"></p>
     </section>
   </div>
 </div>
 
 <script src="calc.js"></script>
 <script>
-const { calc, fields, keys } = globalThis.Sourdough;
+const { calc, convert, modes, fields, keys } = globalThis.Sourdough;
 
-const KEY = 'sourdough-calculator';
+const KEY = 'sourdough-calculator:v3';
+const COLLAPSE_KEY = 'sourdough-calculator:collapsed';
 const $ = id => document.getElementById(id);
 const names = { flour: 'Flour', water: 'Water', starter: 'Starter', salt: 'Salt' };
 const BLANK = ' ';
-const COLLAPSE_KEY = KEY + ':collapsed';
+const notes = {
+  dough: "Flour, starter and salt are shares of the total dough weight, and water is what remains. Baker's percentages are relative to the flour. Hydration assumes a 100% hydration starter, so half its weight counts as flour and half as water.",
+  bakers: "Starter and salt are baker's percentages, relative to the flour. Hydration is the dough's overall hydration assuming a 100% hydration starter, so half the starter counts as flour and half as water.",
+};
 
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
 
 const g = n => n.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' g';
+const g0 = n => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 const pct = n => (n * 100).toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
 
 const state = load();
+if (!modes[state.mode]) state.mode = 'bakers';
 
 function render() {
-  const r = calc(state);
+  const r = calc(state.mode, state);
   document.body.classList.toggle('invalid', !r.valid && r.ready);
   document.body.classList.toggle('empty', !r.ready);
+  $('note').textContent = notes[state.mode];
   if (!r.ready) return renderBlank();
 
-  $('waterPct').textContent = pct(r.pct.water);
-  $('waterBox').classList.toggle('bad', r.pct.water < 0);
-
-  $('hydration').textContent = pct(r.hydration);
   $('total').innerHTML = `${r.total.toLocaleString()}<small>g</small>`;
   $('perLoaf').textContent = `${state.loafCount} × ${state.loafGrams.toLocaleString()} g`;
-  $('bakersTotal').textContent = pct(r.bakersTotal);
+  $('flourG').innerHTML = `${g0(r.grams.flour)}<small>g</small>`;
+  $('flourSub').textContent = `${pct(r.pct.flour)} of dough`;
+  $('waterG').innerHTML = `${g0(r.grams.water)}<small>g</small>`;
+  $('waterSub').textContent = state.mode === 'dough' ? `${pct(r.hydration)} hydration with the starter` : `${pct(r.pct.water)} of dough, plus the starter`;
 
   const segs = $('bar').children;
   keys.forEach((k, i) => { segs[i].style.flex = `0 0 ${Math.max(0, r.pct[k]) * 100}%`; segs[i].title = `${names[k]} ${pct(r.pct[k])}`; });
@@ -322,8 +353,7 @@ function render() {
 }
 
 function renderBlank() {
-  for (const id of ['waterPct', 'hydration', 'total', 'bakersTotal', 'perLoaf', 'tTotal', 'tLoaf', 'tBakers']) $(id).textContent = BLANK;
-  $('waterBox').classList.remove('bad');
+  for (const id of ['total', 'perLoaf', 'flourG', 'flourSub', 'waterG', 'waterSub', 'tTotal', 'tLoaf', 'tBakers']) $(id).textContent = BLANK;
   for (const s of $('bar').children) s.style.flex = '0 0 0%';
   for (const b of $('legend').querySelectorAll('b')) b.textContent = '';
   $('rows').innerHTML = keys.map(k => `<tr>
@@ -336,16 +366,38 @@ function set(k, v) {
   if (Number.isFinite(v)) state[k] = k === 'loafCount' ? Math.max(1, Math.round(v)) : Math.max(0, v);
   else delete state[k];
   sync(k);
+  mirror(k);
   save();
   render();
 }
 
+// Keep the other mode's fields describing the same recipe.
+function mirror(k) {
+  const from = Object.keys(modes).find(m => modes[m].fields.includes(k));
+  if (!from) return;
+  const to = from === 'dough' ? 'bakers' : 'dough';
+  const complete = modes[from].fields.every(f => Number.isFinite(state[f]));
+  const derived = complete ? convert[from](state) : {};
+  for (const f of modes[to].fields) {
+    if (f in derived) state[f] = derived[f]; else delete state[f];
+    sync(f);
+  }
+}
+
 function sync(k) {
-  const v = state[k] ?? '';
+  const v = state[k] == null ? '' : Math.round(state[k] * 100) / 100;
   const el = $(k);
   if (document.activeElement !== el) el.value = v;
   const range = document.querySelector(`[data-for="${k}"]`);
   if (range) range.value = v === '' ? range.min : v;
+}
+
+function setMode(mode) {
+  state.mode = mode;
+  for (const t of document.querySelectorAll('[role=tab]')) t.setAttribute('aria-selected', String(t.dataset.mode === mode));
+  for (const p of document.querySelectorAll('.mode')) p.hidden = p.dataset.mode !== mode;
+  save();
+  render();
 }
 
 for (const k of fields) {
@@ -356,6 +408,8 @@ for (const r of document.querySelectorAll('input[type=range]'))
   r.addEventListener('input', e => set(r.dataset.for, parseFloat(e.target.value)));
 for (const b of document.querySelectorAll('[data-step]'))
   b.addEventListener('click', () => set('loafCount', (state.loafCount ?? 0) + Number(b.dataset.step)));
+for (const t of document.querySelectorAll('[role=tab]'))
+  t.addEventListener('click', () => setMode(t.dataset.mode));
 
 const inputs = document.querySelector('.inputs');
 function setCollapsed(c) {
@@ -367,7 +421,10 @@ $('toggle').addEventListener('click', () => { if (matchMedia('(max-width: 859px)
 try { if (localStorage.getItem(COLLAPSE_KEY)) setCollapsed(true); } catch {}
 
 fields.forEach(sync);
-render();
+const other = state.mode === 'dough' ? 'bakers' : 'dough';
+const seeded = [state.mode, other].find(m => modes[m].fields.every(f => Number.isFinite(state[f])));
+if (seeded) mirror(modes[seeded].fields[0]);
+setMode(state.mode);
 </script>
 </body>
 </html>
