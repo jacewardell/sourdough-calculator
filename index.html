@@ -85,7 +85,7 @@ header p { margin: 0; color: var(--muted); font-size: 15px; }
 }
 
 /* Inputs */
-.inputs { padding-bottom: 8px; }
+.inputs { padding-bottom: 12px; }
 .field { padding: 16px 22px; border-bottom: 1px solid var(--line); }
 .field:last-of-type { border-bottom: 0; }
 .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
@@ -116,12 +116,6 @@ input[type=range] { width: 100%; accent-color: var(--crust); margin: 8px 0 0; }
 .derived .value { font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 600; }
 .derived.bad .value { color: var(--warn); }
 
-.actions { padding: 6px 22px 14px; display: flex; justify-content: flex-end; }
-.btn {
-  border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 999px;
-  padding: 6px 14px; font-size: 13px; cursor: pointer;
-}
-.btn:hover { color: var(--ink); border-color: var(--muted); }
 
 /* Results */
 .results { display: grid; gap: 20px; }
@@ -213,7 +207,6 @@ body.invalid .results { opacity: .45; }
 
       <div class="warn">Flour, starter and salt add up to more than 100%. Lower one of them.</div>
 
-      <div class="actions"><button class="btn" id="reset" type="button">Reset to defaults</button></div>
     </section>
 
     <section class="results" aria-label="Results" aria-live="polite">
@@ -267,18 +260,15 @@ body.invalid .results { opacity: .45; }
 <script>
 const { calc, defaults, keys } = globalThis.Sourdough;
 
-const KEY = 'sourdough-calculator';
 const $ = id => document.getElementById(id);
 const fields = Object.keys(defaults);
 const names = { flour: 'Flour', water: 'Water', starter: 'Starter', salt: 'Salt' };
 
-const load = () => { try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...defaults }; } };
-const save = s => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
 
 const g = n => n.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' g';
 const pct = n => (n * 100).toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
 
-let state = load();
+const state = { ...defaults };
 
 function render() {
   const r = calc(state);
@@ -312,7 +302,6 @@ function set(k, v) {
   if (!Number.isFinite(v)) return;
   state[k] = k === 'loafCount' ? Math.max(1, Math.round(v)) : Math.max(0, v);
   sync(k);
-  save(state);
   render();
 }
 
@@ -331,7 +320,6 @@ for (const r of document.querySelectorAll('input[type=range]'))
   r.addEventListener('input', e => set(r.dataset.for, parseFloat(e.target.value)));
 for (const b of document.querySelectorAll('[data-step]'))
   b.addEventListener('click', () => set('loafCount', state.loafCount + Number(b.dataset.step)));
-$('reset').addEventListener('click', () => { state = { ...defaults }; fields.forEach(sync); save(state); render(); });
 
 fields.forEach(sync);
 render();
