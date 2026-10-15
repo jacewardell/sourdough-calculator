@@ -86,7 +86,7 @@ h1 em { font-style: italic; color: var(--crust); font-weight: 500; }
 .col { display: grid; gap: 20px; align-content: start; }
 
 /* Saved recipes */
-.recipes h2 { padding-bottom: 12px; }
+.recipes .body { padding-top: 12px; }
 .recipe-list { list-style: none; margin: 0; padding: 0 14px; display: flex; flex-direction: column; gap: 6px; }
 .recipe-list li { display: flex; gap: 4px; }
 .recipe-list .load {
@@ -121,9 +121,9 @@ h1 em { font-style: italic; color: var(--crust); font-weight: 500; }
 @media (max-width: 859px) {
   .toggle { cursor: pointer; }
   .toggle .chev { display: block; }
-  .inputs.collapsed { padding-bottom: 18px; }
-  .inputs.collapsed .toggle .chev { transform: rotate(-180deg); }
-  .inputs.collapsed #recipeBody { display: none; }
+  .collapsible.collapsed { padding-bottom: 18px; }
+  .collapsible.collapsed .toggle .chev { transform: rotate(-180deg); }
+  .collapsible.collapsed .body { display: none; }
 }
 .field { padding: 16px 22px; border-bottom: 1px solid var(--line); }
 .field:last-child { border-bottom: 0; }
@@ -213,12 +213,12 @@ body.empty .empty-note { display: block; }
 
   <div class="grid">
     <div class="col">
-    <section class="card inputs" aria-label="Inputs">
-      <button class="toggle" id="toggle" type="button" aria-expanded="true" aria-controls="recipeBody">
+    <section class="card inputs collapsible" data-key="recipe" aria-label="Inputs">
+      <button class="toggle" type="button" aria-expanded="true" aria-controls="recipeBody">
         <span class="title">Recipe</span>
         <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       </button>
-      <div id="recipeBody">
+      <div class="body" id="recipeBody">
 
       <div class="field">
         <div class="field-head"><label for="loafGrams">Loaf weight</label><span class="hint">grams per loaf</span></div>
@@ -281,13 +281,18 @@ body.empty .empty-note { display: block; }
       </div>
     </section>
 
-    <section class="card recipes" aria-label="Saved recipes">
-      <h2>Saved recipes</h2>
-      <ul class="recipe-list" id="recipeList"></ul>
-      <form class="save-row" id="saveForm">
-        <input class="name" id="recipeName" type="text" placeholder="Name this recipe" maxlength="40" autocomplete="off">
-        <button class="save-btn" id="saveBtn" type="submit">Save</button>
-      </form>
+    <section class="card recipes collapsible" data-key="recipes" aria-label="Saved recipes">
+      <button class="toggle" type="button" aria-expanded="true" aria-controls="recipesBody">
+        <span class="title">Saved recipes</span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="body" id="recipesBody">
+        <ul class="recipe-list" id="recipeList"></ul>
+        <form class="save-row" id="saveForm">
+          <input class="name" id="recipeName" type="text" placeholder="Name this recipe" maxlength="40" autocomplete="off">
+          <button class="save-btn" id="saveBtn" type="submit">Save</button>
+        </form>
+      </div>
     </section>
     </div>
 
@@ -506,14 +511,17 @@ $('recipeList').addEventListener('click', e => {
   saveRecipes(); save(); renderRecipes();
 });
 
-const inputs = document.querySelector('.inputs');
-function setCollapsed(c) {
-  inputs.classList.toggle('collapsed', c);
-  $('toggle').setAttribute('aria-expanded', String(!c));
-  try { localStorage.setItem(COLLAPSE_KEY, c ? '1' : ''); } catch {}
+for (const card of document.querySelectorAll('.collapsible')) {
+  const key = `${COLLAPSE_KEY}:${card.dataset.key}`;
+  const btn = card.querySelector('.toggle');
+  const setCollapsed = c => {
+    card.classList.toggle('collapsed', c);
+    btn.setAttribute('aria-expanded', String(!c));
+    try { localStorage.setItem(key, c ? '1' : ''); } catch {}
+  };
+  btn.addEventListener('click', () => { if (matchMedia('(max-width: 859px)').matches) setCollapsed(!card.classList.contains('collapsed')); });
+  try { if (localStorage.getItem(key)) setCollapsed(true); } catch {}
 }
-$('toggle').addEventListener('click', () => { if (matchMedia('(max-width: 859px)').matches) setCollapsed(!inputs.classList.contains('collapsed')); });
-try { if (localStorage.getItem(COLLAPSE_KEY)) setCollapsed(true); } catch {}
 
 fields.forEach(sync);
 const other = state.mode === 'dough' ? 'bakers' : 'dough';
