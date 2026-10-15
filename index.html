@@ -83,6 +83,33 @@ h1 em { font-style: italic; color: var(--crust); font-weight: 500; }
   padding: 18px 22px 0; letter-spacing: -.01em;
 }
 
+.col { display: grid; gap: 20px; align-content: start; }
+
+/* Saved recipes */
+.recipes h2 { padding-bottom: 12px; }
+.recipe-list { list-style: none; margin: 0; padding: 0 14px; display: flex; flex-direction: column; gap: 6px; }
+.recipe-list li { display: flex; gap: 4px; }
+.recipe-list .load {
+  flex: 1; min-width: 0; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 10px;
+  text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface-2); color: var(--ink); font: inherit; font-weight: 600; font-size: 14px; cursor: pointer;
+}
+.recipe-list .load:hover { border-color: var(--muted); }
+.recipe-list li.active .load { border-color: var(--crust); box-shadow: inset 0 0 0 1px var(--crust); }
+.recipe-list .meta { font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 400; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.recipe-list .del { width: 36px; border: 1px solid var(--line); border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; }
+.recipe-list .del:hover { color: var(--warn); border-color: var(--warn); }
+.recipe-list .del.confirm { width: auto; padding: 0 10px; font-size: 12px; font-weight: 600; color: #fff; background: var(--warn); border-color: var(--warn); }
+.recipe-empty { color: var(--muted); font-size: 13px; padding: 0 22px; }
+.save-row { display: flex; gap: 8px; padding: 12px 14px 14px; }
+.save-row .name {
+  flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface-2); color: var(--ink); font: inherit; font-size: 14px;
+}
+.save-row .name:focus { outline: 2px solid var(--crust); outline-offset: 1px; border-color: transparent; }
+.save-btn { padding: 9px 16px; border: 0; border-radius: 10px; background: var(--crust); color: var(--crust-ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.save-btn:disabled { opacity: .45; cursor: default; }
+
 /* Inputs */
 .inputs { padding-bottom: 12px; }
 .toggle {
@@ -185,6 +212,7 @@ body.empty .empty-note { display: block; }
   </header>
 
   <div class="grid">
+    <div class="col">
     <section class="card inputs" aria-label="Inputs">
       <button class="toggle" id="toggle" type="button" aria-expanded="true" aria-controls="recipeBody">
         <span class="title">Recipe</span>
@@ -253,6 +281,16 @@ body.empty .empty-note { display: block; }
       </div>
     </section>
 
+    <section class="card recipes" aria-label="Saved recipes">
+      <h2>Saved recipes</h2>
+      <ul class="recipe-list" id="recipeList"></ul>
+      <form class="save-row" id="saveForm">
+        <input class="name" id="recipeName" type="text" placeholder="Name this recipe" maxlength="40" autocomplete="off">
+        <button class="save-btn" id="saveBtn" type="submit">Save</button>
+      </form>
+    </section>
+    </div>
+
     <section class="results" aria-label="Results" aria-live="polite">
       <div class="tiles">
         <div class="card tile hero">
@@ -305,6 +343,7 @@ const { calc, convert, modes, fields, keys } = globalThis.Sourdough;
 
 const KEY = 'sourdough-calculator:v3';
 const COLLAPSE_KEY = 'sourdough-calculator:collapsed';
+const RECIPES_KEY = 'sourdough-calculator:recipes';
 const $ = id => document.getElementById(id);
 const names = { flour: 'Flour', water: 'Water', starter: 'Starter', salt: 'Salt' };
 const BLANK = ' ';
@@ -315,12 +354,15 @@ const notes = {
 
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const loadRecipes = () => { try { return JSON.parse(localStorage.getItem(RECIPES_KEY)) || []; } catch { return []; } };
+const saveRecipes = () => { try { localStorage.setItem(RECIPES_KEY, JSON.stringify(recipes)); } catch {} };
 
 const g = n => n.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' g';
 const g0 = n => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 const pct = n => (n * 100).toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
 
 const state = load();
+const recipes = loadRecipes();
 if (!modes[state.mode]) state.mode = 'bakers';
 
 function render() {
@@ -328,6 +370,8 @@ function render() {
   document.body.classList.toggle('invalid', !r.valid && r.ready);
   document.body.classList.toggle('empty', !r.ready);
   $('note').textContent = notes[state.mode];
+  $('saveBtn').disabled = !r.ready;
+  renderRecipes();
   if (!r.ready) return renderBlank();
 
   $('total').innerHTML = `${r.total.toLocaleString()}<small>g</small>`;
@@ -365,6 +409,7 @@ function renderBlank() {
 function set(k, v) {
   if (Number.isFinite(v)) state[k] = k === 'loafCount' ? Math.max(1, Math.round(v)) : Math.max(0, v);
   else delete state[k];
+  delete state.recipe;
   sync(k);
   mirror(k);
   save();
@@ -410,6 +455,56 @@ for (const b of document.querySelectorAll('[data-step]'))
   b.addEventListener('click', () => set('loafCount', (state.loafCount ?? 0) + Number(b.dataset.step)));
 for (const t of document.querySelectorAll('[role=tab]'))
   t.addEventListener('click', () => setMode(t.dataset.mode));
+
+const esc = t => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const n1 = n => (Math.round(n * 10) / 10).toLocaleString();
+
+function renderRecipes() {
+  const list = $('recipeList');
+  if (!recipes.length) { list.innerHTML = '<li class="recipe-empty">Nothing saved yet. Fill in a recipe and give it a name.</li>'; return; }
+  list.innerHTML = recipes.map(r => `<li data-id="${r.id}"${r.id === state.recipe ? ' class="active"' : ''}>
+    <button type="button" class="load"><span>${esc(r.name)}</span>
+      <span class="meta">${n1(r.b_hydration)}% · ${n1(r.b_starter)}% · ${n1(r.b_salt)}% · ${r.loafCount} × ${r.loafGrams} g</span></button>
+    <button type="button" class="del" aria-label="Delete ${esc(r.name)}">×</button>
+  </li>`).join('');
+}
+
+function loadRecipe(r) {
+  for (const k of fields) { if (Number.isFinite(r[k])) state[k] = r[k]; else delete state[k]; }
+  state.recipe = r.id;
+  fields.forEach(sync);
+  setMode(modes[r.mode] ? r.mode : state.mode);
+}
+
+function saveRecipe(name) {
+  const data = { name, mode: state.mode };
+  for (const k of fields) data[k] = state[k];
+  const i = recipes.findIndex(r => r.name.toLowerCase() === name.toLowerCase());
+  if (i >= 0) recipes[i] = { ...data, id: recipes[i].id }; else recipes.push({ ...data, id: Date.now() });
+  state.recipe = (i >= 0 ? recipes[i] : recipes[recipes.length - 1]).id;
+  saveRecipes(); save(); renderRecipes();
+  $('recipeName').value = '';
+}
+
+$('saveForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('recipeName').value.trim();
+  if (name && calc(state.mode, state).ready) saveRecipe(name);
+});
+$('recipeList').addEventListener('click', e => {
+  const li = e.target.closest('li[data-id]'); if (!li) return;
+  const r = recipes.find(x => String(x.id) === li.dataset.id);
+  const del = e.target.closest('.del');
+  if (!del) return loadRecipe(r);
+  if (!del.classList.contains('confirm')) {
+    del.classList.add('confirm'); del.textContent = 'Delete?';
+    setTimeout(() => { del.classList.remove('confirm'); del.textContent = '×'; }, 3000);
+    return;
+  }
+  recipes.splice(recipes.indexOf(r), 1);
+  if (state.recipe === r.id) delete state.recipe;
+  saveRecipes(); save(); renderRecipes();
+});
 
 const inputs = document.querySelector('.inputs');
 function setCollapsed(c) {
