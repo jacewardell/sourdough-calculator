@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sourdough Calculator</title>
-<meta name="description" content="Scale a sourdough recipe by loaf weight and count, with baker's percentages and true hydration.">
+<meta name="description" content="Scale a sourdough recipe by loaf weight and count, with baker's percentages, true hydration, a bake-day schedule.">
+<meta name="theme-color" content="#b4552a">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" type="image/png" sizes="48x48">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -25,6 +27,7 @@
   --water: #4a8bc2;
   --starter: #b4552a;
   --salt: #9aa5b1;
+  --addin: #7a9e5a;
   --warn: #b23b3b;
   --shadow: 0 1px 2px rgb(60 35 10 / .06), 0 12px 32px -12px rgb(60 35 10 / .18);
   --radius: 18px;
@@ -44,6 +47,7 @@
     --water: #63a3d8;
     --starter: #e07a46;
     --salt: #a7b1bc;
+    --addin: #8fb36c;
     --warn: #e36a6a;
     --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 16px 40px -16px rgb(0 0 0 / .6);
   }
@@ -51,11 +55,12 @@
 :root[data-theme="dark"] {
   --bg: #17120d; --surface: #221a13; --surface-2: #2b2118; --ink: #f3e8d8; --muted: #a9957f;
   --line: #3b2e22; --crust: #e07a46; --crust-ink: #1d120a; --flour: #e3b254; --water: #63a3d8;
-  --starter: #e07a46; --salt: #a7b1bc; --warn: #e36a6a;
+  --starter: #e07a46; --salt: #a7b1bc; --addin: #8fb36c; --warn: #e36a6a;
   --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 16px 40px -16px rgb(0 0 0 / .6);
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 button { -webkit-tap-highlight-color: transparent; }
 html { -webkit-text-size-adjust: 100%; }
 body {
@@ -86,30 +91,57 @@ h1 em { font-style: italic; color: var(--crust); font-weight: 500; }
 
 .col { display: grid; gap: 20px; align-content: start; }
 
-/* Saved recipes */
-.recipes .body { padding-top: 12px; }
-.recipe-list { list-style: none; margin: 0; padding: 0 14px; display: flex; flex-direction: column; gap: 6px; }
-.recipe-list li { display: flex; gap: 4px; }
-.recipe-list .load {
-  flex: 1; min-width: 0; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 10px;
-  text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
-  background: var(--surface-2); color: var(--ink); font: inherit; font-weight: 600; font-size: 14px; cursor: pointer;
+/* Shared controls */
+.btn {
+  padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--ink);
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
-.recipe-list .load:hover { border-color: var(--muted); }
-.recipe-list li.active .load { border-color: var(--crust); box-shadow: inset 0 0 0 1px var(--crust); }
-.recipe-list .meta { font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 400; font-size: 12px; color: var(--muted); white-space: nowrap; }
-.recipe-list .del { width: 36px; border: 1px solid var(--line); border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; }
-.recipe-list .del:hover { color: var(--warn); border-color: var(--warn); }
-.recipe-list .del.confirm { width: auto; padding: 0 10px; font-size: 12px; font-weight: 600; color: #fff; background: var(--warn); border-color: var(--warn); }
-.recipe-empty { color: var(--muted); font-size: 13px; padding: 0 22px; }
-.save-row { display: flex; gap: 8px; padding: 12px 14px 14px; }
-.save-row .name {
-  flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px;
-  background: var(--surface-2); color: var(--ink); font: inherit; font-size: 14px;
+.btn:hover { border-color: var(--muted); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--crust); color: var(--crust-ink); border-color: transparent; }
+.select, .save-row .name, .rrow .name, .logf .name {
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--ink);
+  font: inherit; font-size: 14px; min-width: 0;
 }
-.save-row .name:focus { outline: 2px solid var(--crust); outline-offset: 1px; border-color: transparent; }
+.select:focus, .save-row .name:focus, .rrow .name:focus, .logf .name:focus { outline: 2px solid var(--crust); outline-offset: 1px; border-color: transparent; }
+.select.block { display: block; width: 100%; margin-top: 8px; }
+.x { width: 32px; height: 36px; border: 1px solid var(--line); border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; flex: none; }
+.x:hover { color: var(--warn); border-color: var(--warn); }
+.tip { color: var(--muted); font-size: 13px; padding: 0 22px 16px; margin: 0; line-height: 1.5; }
+.tip:empty { display: none; }
+.tip.warn-text { color: var(--warn); font-weight: 600; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; }
+
+/* Recipe field */
+.save-row { display: flex; gap: 8px; margin-top: 8px; }
+.save-row .name { flex: 1; }
 .save-btn { padding: 9px 16px; border: 0; border-radius: 10px; background: var(--crust); color: var(--crust-ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .save-btn:disabled { opacity: .45; cursor: default; }
+.tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tools:not(:has(button:not([hidden]))) { display: none; }
+.btn.confirm { background: var(--warn); color: #fff; border-color: var(--warn); }
+
+/* Bake log */
+body.log-view .grid { display: none; }
+.journal { max-width: 720px; margin: 0 auto; }
+.jhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 22px 0; }
+.jhead h2 { padding: 0; }
+.logf { display: flex; flex-wrap: wrap; gap: 6px; padding: 14px 22px 0; }
+.logf .name { flex: 1 1 160px; }
+.logf select[name=rid] { flex: 1 1 140px; }
+.jfilter { display: flex; align-items: center; gap: 8px; padding: 14px 22px 0; font-size: 13px; color: var(--muted); }
+.jfilter .select { padding: 5px 8px; font-size: 13px; }
+.entries { list-style: none; margin: 0; padding: 8px 22px 18px; }
+.entries li { display: grid; grid-template-columns: 64px auto 1fr 28px; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--line); }
+.entries li:first-child { border-top: 0; }
+.entries .date { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; color: var(--muted); padding-top: 2px; }
+.entries .stars { color: var(--flour); letter-spacing: 1px; font-size: 13px; }
+.entries b { font-size: 14px; }
+.entries .n { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.entries .x { width: 28px; height: 28px; font-size: 14px; }
+.entries .none { display: block; color: var(--muted); font-size: 13px; }
+@media (max-width: 480px) { .entries li { grid-template-columns: 64px 1fr 28px; } .entries .stars { grid-column: 2; } .entries .body { grid-column: 2; } .entries .x { grid-column: 3; grid-row: 1; } }
 
 /* Inputs */
 .inputs { padding-bottom: 12px; }
@@ -123,18 +155,21 @@ h1 em { font-style: italic; color: var(--crust); font-weight: 500; }
 .collapsible.collapsed .toggle { border-radius: var(--radius); }
 .toggle .title { font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 20px; letter-spacing: -.01em; }
 .toggle .chev { display: none; color: var(--muted); transition: transform .2s ease; flex: none; }
+.collapsible.collapsed { padding-bottom: 18px; }
+.collapsible.collapsed .toggle .chev { transform: rotate(-180deg); }
+.collapsible.collapsed .body { display: none; }
+.always .toggle { cursor: pointer; }
+.always .toggle .chev { display: block; }
 @media (max-width: 859px) {
   .toggle { cursor: pointer; }
   .toggle .chev { display: block; }
-  .collapsible.collapsed { padding-bottom: 18px; }
-  .collapsible.collapsed .toggle .chev { transform: rotate(-180deg); }
-  .collapsible.collapsed .body { display: none; }
 }
 .field { padding: 16px 22px; border-bottom: 1px solid var(--line); }
 .field:last-child { border-bottom: 0; }
 .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
 label, .field-label { font-weight: 600; font-size: 14px; }
-.hint { color: var(--muted); font-size: 12px; }
+.hint { color: var(--muted); font-size: 12px; text-align: right; }
+.hint.warn-text { color: var(--warn); font-weight: 600; }
 .num {
   font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 15px; font-weight: 600;
   width: 96px; padding: 8px 10px; text-align: right;
@@ -145,6 +180,7 @@ label, .field-label { font-weight: 600; font-size: 14px; }
 .num:focus { outline: 2px solid var(--crust); outline-offset: 1px; border-color: transparent; }
 .unit { color: var(--muted); font-size: 13px; margin-left: 6px; }
 .row { display: flex; align-items: center; gap: 12px; }
+.row .select { flex: 1; }
 
 .stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); overflow: hidden; }
 .stepper button {
@@ -161,12 +197,32 @@ label, .field-label { font-weight: 600; font-size: 14px; }
   border: 0; border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 600;
   background: transparent; color: var(--muted); cursor: pointer;
 }
-.seg button[aria-selected="true"] { background: var(--crust); color: var(--crust-ink); }
+.seg button[aria-selected="true"], .seg button[aria-pressed="true"] { background: var(--crust); color: var(--crust-ink); }
+.seg.mini { display: inline-grid; grid-auto-flow: column; grid-template-columns: none; margin: 0; padding: 3px; }
+.seg.mini button { padding: 5px 10px; font-size: 12px; white-space: nowrap; }
 .mode .field:first-child { border-top: 0; }
 
 input[type=range] { width: 100%; accent-color: var(--crust); margin: 8px 0 0; }
 
+.rows { display: grid; gap: 6px; margin-bottom: 8px; }
+.rows:empty { margin: 0; }
+.rrow { display: grid; grid-template-columns: 1fr 76px auto 32px; align-items: center; gap: 6px; }
+.rrow .num { width: 100%; }
+.rrow .unit { margin: 0; }
 
+/* Tools */
+.tool .body { padding-bottom: 6px; }
+.tool-grid { display: grid; grid-template-columns: 1fr 1fr; }
+.tool-grid .field { border-bottom: 0; padding: 12px 22px 6px; }
+@media (max-width: 480px) { .tool-grid { grid-template-columns: 1fr; } }
+.tool .actions { padding: 4px 22px 16px; justify-content: flex-start; }
+.steps { list-style: none; margin: 0; padding: 4px 22px 12px; }
+.steps li { display: grid; grid-template-columns: 110px 1fr; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
+.steps li:first-child { border-top: 0; }
+.steps time { font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 600; font-size: 14px; white-space: nowrap; }
+.steps b { font-weight: 600; font-size: 14px; }
+.steps .d { color: var(--muted); font-size: 13px; }
+.steps li.past { opacity: .5; }
 
 /* Results */
 .results { display: grid; gap: 20px; }
@@ -186,7 +242,7 @@ input[type=range] { width: 100%; accent-color: var(--crust); margin: 8px 0 0; }
 .bar span { transition: flex-basis .25s ease; min-width: 0; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
-.c-flour { background: var(--flour); } .c-water { background: var(--water); } .c-starter { background: var(--starter); } .c-salt { background: var(--salt); }
+.c-flour { background: var(--flour); } .c-water { background: var(--water); } .c-starter { background: var(--starter); } .c-salt { background: var(--salt); } .c-addin { background: var(--addin); }
 
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 12px 16px; text-align: right; border-top: 1px solid var(--line); white-space: nowrap; }
@@ -196,11 +252,12 @@ th:last-child, td:last-child { padding-right: 22px; }
 td { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 15px; }
 td:first-child { font-family: inherit; font-weight: 600; }
 td.g { font-weight: 600; }
+tr.sub td { border-top: 0; padding-top: 0; font-size: 13px; color: var(--muted); }
+tr.sub td:first-child { padding-left: 40px; font-weight: 500; }
 tfoot td { color: var(--muted); font-size: 13px; background: var(--surface-2); }
 tfoot td:first-child { color: var(--ink); }
 .table-card { overflow-x: auto; }
-.table-card h2 { padding-bottom: 10px; }
-@media (max-width: 600px) { th, td { padding: 10px 10px; } td { font-size: 14px; } th:first-child, td:first-child { padding-left: 16px; } th:last-child, td:last-child { padding-right: 16px; } }
+@media (max-width: 600px) { th, td { padding: 10px 10px; } td { font-size: 14px; } th:first-child, td:first-child { padding-left: 16px; } th:last-child, td:last-child { padding-right: 16px; } tr.sub td:first-child { padding-left: 34px; } }
 
 .note { color: var(--muted); font-size: 13px; padding: 0 4px; line-height: 1.6; }
 .warn { display: none; color: var(--warn); font-size: 13px; padding: 8px 22px 0; font-weight: 600; }
@@ -208,6 +265,26 @@ body.invalid .warn { display: block; }
 body.invalid .results, body.empty .results { opacity: .45; }
 .empty-note { display: none; color: var(--muted); font-size: 13px; padding: 8px 22px 0; }
 body.empty .empty-note { display: block; }
+
+@media print {
+  body { background: #fff; color: #000; font-size: 13px; }
+  .wrap { padding: 0; max-width: none; }
+  header, .inputs, .actions, .journal, .bar-wrap, .note, .tool:not(.plan), .plan .tool-grid, .plan .toggle .chev, .seg.mini, .no-print { display: none !important; }
+  .grid { display: block; }
+  .card {
+    box-shadow: none; border: 1px solid #bbb; border-radius: 8px; overflow: visible; margin-bottom: 14px;
+    break-inside: avoid; page-break-inside: avoid; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  }
+  .table-card { padding-bottom: 6px; }
+  tfoot td { background: none; }
+  th, td { padding-top: 10px; padding-bottom: 10px; }
+  .tile.hero { background: #fff; color: #000; border-color: #bbb; }
+  .results, .col { display: block; }
+  .tiles { display: flex; gap: 10px; }
+  .tiles .tile { flex: 1; }
+  body.invalid .results, body.empty .results { opacity: 1; }
+  .collapsible.collapsed .body { display: block; }
+}
 </style>
 </head>
 <body>
@@ -226,8 +303,21 @@ body.empty .empty-note { display: block; }
       <div class="body" id="recipeBody">
 
       <div class="field">
+        <div class="field-head"><label for="preset">Recipe</label><span class="hint">yours and presets</span></div>
+        <select class="select block" id="preset" style="margin-top:0"></select>
+        <form class="save-row" id="saveForm">
+          <input class="name" id="recipeName" type="text" placeholder="Name this recipe" maxlength="40" autocomplete="off">
+          <button class="save-btn" id="saveBtn" type="submit">Save</button>
+        </form>
+        <div class="tools">
+          <button class="btn" type="button" id="delBtn" hidden>Delete</button>
+        </div>
+      </div>
+
+      <div class="field">
         <div class="field-head"><label for="loafGrams">Loaf weight</label><span class="hint">grams per loaf</span></div>
         <div class="row"><input class="num" id="loafGrams" type="number" min="1" step="10" inputmode="decimal"><span class="unit">g</span></div>
+        <select class="select block" id="vessel" aria-label="Pick a vessel to set the loaf weight"><option value="">…or pick a vessel</option></select>
       </div>
 
       <div class="field">
@@ -260,7 +350,7 @@ body.empty .empty-note { display: block; }
           <div class="row"><input class="num" id="d_salt" type="number" min="0" max="100" step="0.01" inputmode="decimal"><span class="unit">%</span></div>
           <input type="range" data-for="d_salt" min="0" max="3" step="0.01" aria-label="Salt percent slider">
         </div>
-        <div class="warn">Flour, starter and salt add up to more than 100%. Lower one of them.</div>
+        <div class="warn">Flour, add-ins, starter and salt add up to more than 100%. Lower one of them.</div>
       </div>
 
       <div class="mode" data-mode="bakers" role="tabpanel" hidden>
@@ -282,26 +372,42 @@ body.empty .empty-note { display: block; }
         <div class="warn">That much starter already carries more water than the hydration allows. Raise hydration or lower starter.</div>
       </div>
 
+      <div class="field" style="border-top:1px solid var(--line)">
+        <div class="field-head"><span class="field-label">Starter hydration</span><span class="hint" id="shHint"></span></div>
+        <div id="shBody" hidden>
+          <div class="row"><input class="num" id="starterHydration" type="number" min="1" max="300" step="1" inputmode="decimal" aria-label="Starter hydration, water as % of its flour"><span class="unit">water as % of its flour</span></div>
+          <input type="range" data-for="starterHydration" min="50" max="150" step="1" aria-label="Starter hydration slider">
+        </div>
+        <button class="btn" type="button" id="shToggle" aria-expanded="false" aria-controls="shBody" style="margin-top:8px">Adjust</button>
+      </div>
+
+      <div class="field">
+        <div class="field-head"><span class="field-label">Flour blend</span><span class="hint" id="blendHint">single flour</span></div>
+        <div class="rows" id="blendRows"></div>
+        <button class="btn" type="button" id="addFlour">Add a flour</button>
+        <p class="tip" id="absorbTip" style="padding:10px 0 0"></p>
+      </div>
+
+      <div class="field">
+        <div class="field-head"><span class="field-label">Add-ins</span><span class="hint">% of flour</span></div>
+        <div class="rows" id="addinRows"></div>
+        <button class="btn" type="button" id="addAddin">Add an add-in</button>
+      </div>
+
       <div class="empty-note">Fill in every field to see the recipe.</div>
       </div>
     </section>
 
-    <section class="card recipes collapsible" data-key="recipes" aria-label="Saved recipes">
-      <button class="toggle" type="button" aria-expanded="true" aria-controls="recipesBody">
-        <span class="title">Saved recipes</span>
-        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-      </button>
-      <div class="body" id="recipesBody">
-        <ul class="recipe-list" id="recipeList"></ul>
-        <form class="save-row" id="saveForm">
-          <input class="name" id="recipeName" type="text" placeholder="Name this recipe" maxlength="40" autocomplete="off">
-          <button class="save-btn" id="saveBtn" type="submit">Save</button>
-        </form>
-      </div>
-    </section>
     </div>
 
+    <div class="col">
     <section class="results" aria-label="Results" aria-live="polite">
+      <div class="actions no-print">
+        <button class="btn" type="button" id="logOpen">Bake log</button>
+        <button class="btn" type="button" id="exportBtn">Export recipes</button>
+        <button class="btn" type="button" id="importBtn">Import recipes</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
       <div class="tiles">
         <div class="card tile hero">
           <div class="k">Total dough</div>
@@ -323,13 +429,14 @@ body.empty .empty-note { display: block; }
       <div class="card bar-wrap">
         <h2 style="padding:0">Dough composition</h2>
         <div class="bar" id="bar" role="img" aria-label="Dough composition by weight">
-          <span class="c-flour"></span><span class="c-water"></span><span class="c-starter"></span><span class="c-salt"></span>
+          <span class="c-flour"></span><span class="c-water"></span><span class="c-starter"></span><span class="c-salt"></span><span class="c-addin"></span>
         </div>
         <div class="legend" id="legend">
           <span><i class="c-flour"></i>Flour <b data-k="flour"></b></span>
           <span><i class="c-water"></i>Water <b data-k="water"></b></span>
           <span><i class="c-starter"></i>Starter <b data-k="starter"></b></span>
           <span><i class="c-salt"></i>Salt <b data-k="salt"></b></span>
+          <span id="legAddin" hidden><i class="c-addin"></i>Add-ins <b data-k="addin"></b></span>
         </div>
       </div>
 
@@ -344,23 +451,116 @@ body.empty .empty-note { display: block; }
 
       <p class="note" id="note"></p>
     </section>
+
+    <section class="card tool plan collapsible always" data-key="plan" aria-label="Schedule">
+      <button class="toggle" type="button" aria-expanded="true" aria-controls="planBody">
+        <span class="title">Schedule</span>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="body" id="planBody">
+        <div class="tool-grid">
+          <div class="field">
+            <div class="field-head"><label for="planStart">Start</label><span class="hint">when you mix</span></div>
+            <input class="select block" id="planStart" type="datetime-local" style="margin-top:0">
+          </div>
+          <div class="field">
+            <div class="field-head"><label for="planTemp">Dough temp</label><span class="hint">during bulk</span></div>
+            <div class="row"><input class="num temp" id="planTemp" type="number" step="0.5" inputmode="decimal"><span class="unit u"></span>
+              <div class="seg mini" role="group" aria-label="Temperature unit">
+                <button type="button" data-unit="C" aria-pressed="true">°C</button>
+                <button type="button" data-unit="F" aria-pressed="false">°F</button>
+              </div></div>
+          </div>
+          <div class="field">
+            <div class="field-head"><label for="planAutolyse">Autolyse</label></div>
+            <select class="select block" id="planAutolyse" style="margin-top:0"><option value="0">None</option><option value="30">30 min</option><option value="60">1 h</option><option value="120">2 h</option></select>
+          </div>
+          <div class="field">
+            <div class="field-head"><label for="planFolds">Folds</label><span class="hint">stretch and fold</span></div>
+            <div class="row"><input class="num" id="planFolds" type="number" min="0" max="8" step="1" inputmode="numeric"><select class="select" id="planEvery" aria-label="Fold interval"><option value="30">every 30 min</option><option value="45">every 45 min</option><option value="60">every hour</option></select></div>
+          </div>
+          <div class="field">
+            <div class="field-head"><span class="field-label">Final proof</span><span class="hint" id="coldHint"></span></div>
+            <div class="row">
+              <div class="seg mini" role="group" aria-label="Final proof">
+                <button type="button" data-cold="1" aria-pressed="true">Cold retard</button>
+                <button type="button" data-cold="0" aria-pressed="false">Same day</button>
+              </div>
+              <span class="row" id="coldHours"><input class="num" id="planRetard" type="number" min="1" max="72" step="1" inputmode="decimal" aria-label="Cold retard hours"><span class="unit">h</span></span>
+            </div>
+          </div>
+        </div>
+        <p class="tip" id="planSum"></p>
+        <ol class="steps" id="steps"></ol>
+        <div class="actions no-print">
+          <button class="btn" type="button" id="planNotify">Notify me</button>
+          <button class="btn" type="button" id="planIcs">Add to calendar</button>
+        </div>
+        <p class="tip no-print">Times are estimates. Watch the dough, not the clock. Notifications only fire while this tab stays open.</p>
+      </div>
+    </section>
+    </div>
   </div>
+
+  <section class="journal" id="journal" hidden aria-label="Bake log">
+    <div class="card">
+      <div class="jhead">
+        <h2>Bake log</h2>
+        <button class="btn" type="button" id="logBack">Back to calculator</button>
+      </div>
+      <form class="logf" id="logForm">
+        <select class="select" name="rid" aria-label="Recipe" required></select>
+        <input class="select" type="date" name="d" aria-label="Bake date" required>
+        <select class="select" name="r" aria-label="Rating"></select>
+        <input class="name" type="text" name="n" maxlength="200" placeholder="How did it go?" autocomplete="off">
+        <button class="save-btn" type="submit">Add</button>
+      </form>
+      <div class="jfilter">
+        <label for="logFilter">Show</label>
+        <select class="select" id="logFilter"></select>
+      </div>
+      <ul class="entries" id="entries"></ul>
+    </div>
+  </section>
 </div>
 
 <script src="calc.js"></script>
 <script>
-const { calc, convert, modes, fields, keys } = globalThis.Sourdough;
-
+const { calc, convert, schedule, fmtH, flours, modes, fields, keys } = globalThis.Sourdough;
 const KEY = 'sourdough-calculator:v3';
 const COLLAPSE_KEY = 'sourdough-calculator:collapsed';
 const RECIPES_KEY = 'sourdough-calculator:recipes';
 const $ = id => document.getElementById(id);
 const names = { flour: 'Flour', water: 'Water', starter: 'Starter', salt: 'Salt' };
-const BLANK = ' ';
+const BLANK = ' ';
 const notes = {
-  dough: "Flour, starter and salt are shares of the total dough weight, and water is what remains. Baker's percentages are relative to the flour. Hydration assumes a 100% hydration starter, so half its weight counts as flour and half as water.",
-  bakers: "Starter and salt are baker's percentages, relative to the flour. Hydration is the dough's overall hydration assuming a 100% hydration starter, so half the starter counts as flour and half as water.",
+  dough: "Flour, starter and salt are shares of the total dough weight, and water is what remains. Add-ins ride on the flour and also come out of the water. Baker's percentages are relative to the flour. Hydration counts the starter's own flour and water using the starter hydration you set.",
+  bakers: "Starter, salt and add-ins are baker's percentages, relative to the flour. Hydration is the dough's overall hydration, counting the starter's own flour and water using the starter hydration you set.",
 };
+const defaults = {
+  starterHydration: 100, tempUnit: 'C', planTemp: 24, planAutolyse: 30, planFolds: 4, planEvery: 30, planRetard: 12, planCold: true,
+};
+const opts = ['starterHydration', 'planTemp', 'planFolds', 'planRetard'];
+const optSelects = ['planAutolyse', 'planEvery'];
+const recipeKeys = [...fields, 'starterHydration'];
+const common = ['loafGrams', 'loafCount'];
+
+const presets = [
+  { name: 'Country loaf', loafGrams: 900, loafCount: 1, b_hydration: 75, b_starter: 20, b_salt: 2 },
+  { name: 'High hydration', loafGrams: 900, loafCount: 1, b_hydration: 82, b_starter: 20, b_salt: 2 },
+  { name: 'Sandwich loaf', loafGrams: 900, loafCount: 1, b_hydration: 68, b_starter: 20, b_salt: 2 },
+  { name: '50% whole wheat', loafGrams: 900, loafCount: 1, b_hydration: 80, b_starter: 20, b_salt: 2, blend: [{ type: 'bread', pct: 50 }, { type: 'ww', pct: 50 }] },
+  { name: '30% rye', loafGrams: 900, loafCount: 1, b_hydration: 78, b_starter: 20, b_salt: 2, blend: [{ type: 'bread', pct: 70 }, { type: 'rye', pct: 30 }] },
+  { name: 'Seeded loaf', loafGrams: 950, loafCount: 1, b_hydration: 78, b_starter: 20, b_salt: 2, addins: [{ name: 'Mixed seeds', pct: 12 }] },
+  { name: 'Focaccia', loafGrams: 1000, loafCount: 1, b_hydration: 85, b_starter: 15, b_salt: 2.2, addins: [{ name: 'Olive oil', pct: 5 }] },
+  { name: 'Pizza', loafGrams: 250, loafCount: 4, b_hydration: 65, b_starter: 15, b_salt: 2.5 },
+];
+const vessels = [
+  ['8 in round banneton', 800], ['9 in round banneton', 1000], ['10 in oval banneton', 1100],
+  ['9 × 5 in loaf tin', 900], ['Pullman 9 in', 1000], ['Pullman 13 in', 1400],
+  ['9 × 13 in pan, focaccia', 1000], ['Half sheet, focaccia', 1600],
+  ['12 in pizza', 250], ['14 in pizza', 320], ['Dinner rolls', 80],
+];
 
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
@@ -370,10 +570,22 @@ const saveRecipes = () => { try { localStorage.setItem(RECIPES_KEY, JSON.stringi
 const g = n => n.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' g';
 const g0 = n => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 const pct = n => (n * 100).toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
+const n1 = n => (Math.round(n * 10) / 10).toLocaleString();
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const clean = xs => Array.isArray(xs) ? xs.filter(x => x && typeof x === 'object') : [];
 
 const state = load();
 const recipes = loadRecipes();
 if (!modes[state.mode]) state.mode = 'bakers';
+state.blend = clean(state.blend);
+state.addins = clean(state.addins);
+const val = k => state[k] ?? defaults[k];
+
+// Temperatures are stored in C. Friction is a delta.
+const unit = () => val('tempUnit');
+const toU = c => unit() === 'F' ? c * 9 / 5 + 32 : c;
+const fromU = u => unit() === 'F' ? (u - 32) * 5 / 9 : u;
+const tempFmt = c => `${Math.round(toU(c))} °${unit()}`;
 
 function render() {
   const r = calc(state.mode, state);
@@ -382,27 +594,33 @@ function render() {
   $('note').textContent = notes[state.mode];
   $('saveBtn').disabled = !r.ready;
   renderRecipes();
+  syncPickers();
+  renderStarterMeta(r);
+  renderBlendMeta(r);
+  renderPlan(r);
   if (!r.ready) return renderBlank();
 
+  const n = state.loafCount;
   $('total').innerHTML = `${r.total.toLocaleString()}<small>g</small>`;
-  $('perLoaf').textContent = `${state.loafCount} × ${state.loafGrams.toLocaleString()} g`;
+  $('perLoaf').textContent = `${n} × ${state.loafGrams.toLocaleString()} g`;
   $('flourG').innerHTML = `${g0(r.grams.flour)}<small>g</small>`;
   $('flourSub').textContent = `${pct(r.pct.flour)} of dough`;
   $('waterG').innerHTML = `${g0(r.grams.water)}<small>g</small>`;
   $('waterSub').textContent = state.mode === 'dough' ? `${pct(r.hydration)} hydration with the starter` : `${pct(r.pct.water)} of dough, plus the starter`;
 
+  const addinPct = r.addins.reduce((a, x) => a + x.pct, 0);
+  const shares = { ...r.pct, addin: addinPct };
   const segs = $('bar').children;
-  keys.forEach((k, i) => { segs[i].style.flex = `0 0 ${Math.max(0, r.pct[k]) * 100}%`; segs[i].title = `${names[k]} ${pct(r.pct[k])}`; });
-  for (const b of $('legend').querySelectorAll('b')) b.textContent = pct(r.pct[b.dataset.k]);
+  [...keys, 'addin'].forEach((k, i) => { segs[i].style.flex = `0 0 ${Math.max(0, shares[k]) * 100}%`; segs[i].title = `${names[k] || 'Add-ins'} ${pct(shares[k])}`; });
+  $('legAddin').hidden = !r.addins.length;
+  for (const b of $('legend').querySelectorAll('b')) b.textContent = pct(shares[b.dataset.k]);
 
-  $('rows').innerHTML = keys.map(k => `<tr>
-    <td><i class="c-${k}" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px"></i>${names[k]}</td>
-    <td class="g">${g(r.grams[k])}</td>
-    <td>${g(r.grams[k] / state.loafCount)}</td>
-    <td>${pct(r.bakers[k])}</td>
-  </tr>`).join('');
+  const row = (label, grams, bakers, cls = '') => `<tr${cls ? ` class="${cls}"` : ''}><td>${label}</td><td class="g">${g(grams)}</td><td>${g(grams / n)}</td><td>${bakers}</td></tr>`;
+  $('rows').innerHTML = keys.map(k => row(`<i class="sw c-${k}"></i>${names[k]}`, r.grams[k], pct(r.bakers[k]))
+    + (k === 'flour' ? r.blend.map(b => row(flours[b.type]?.name || 'Flour', b.grams, pct(b.share), 'sub')).join('') : '')).join('')
+    + r.addins.map(a => row(`<i class="sw c-addin"></i>${esc(a.name || 'Add-in')}`, a.grams, pct(a.bakers))).join('');
   $('tTotal').textContent = g(r.total);
-  $('tLoaf').textContent = g(state.loafGrams);
+  $('tLoaf').textContent = g(r.total / n);
   $('tBakers').textContent = pct(r.bakersTotal);
 }
 
@@ -410,26 +628,31 @@ function renderBlank() {
   for (const id of ['total', 'perLoaf', 'flourG', 'flourSub', 'waterG', 'waterSub', 'tTotal', 'tLoaf', 'tBakers']) $(id).textContent = BLANK;
   for (const s of $('bar').children) s.style.flex = '0 0 0%';
   for (const b of $('legend').querySelectorAll('b')) b.textContent = '';
-  $('rows').innerHTML = keys.map(k => `<tr>
-    <td><i class="c-${k}" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px"></i>${names[k]}</td>
-    <td class="g">${BLANK}</td><td>${BLANK}</td><td>${BLANK}</td>
-  </tr>`).join('');
+  $('legAddin').hidden = true;
+  $('rows').innerHTML = keys.map(k => `<tr><td><i class="sw c-${k}"></i>${names[k]}</td><td class="g">${BLANK}</td><td>${BLANK}</td><td>${BLANK}</td></tr>`).join('');
 }
 
 function set(k, v) {
   if (Number.isFinite(v)) state[k] = k === 'loafCount' ? Math.max(1, Math.round(v)) : Math.max(0, v);
   else delete state[k];
   delete state.recipe;
+  if (!common.includes(k)) delete state.preset;
   sync(k);
   mirror(k);
   save();
   render();
 }
 
+// Tool settings: no effect on the recipe identity.
+function setOpt(k, v) {
+  if (v == null || v === '' || Number.isNaN(v)) delete state[k]; else state[k] = v;
+  save();
+  render();
+}
+
 // Keep the other mode's fields describing the same recipe.
 function mirror(k) {
-  const from = Object.keys(modes).find(m => modes[m].fields.includes(k));
-  if (!from) return;
+  const from = Object.keys(modes).find(m => modes[m].fields.includes(k)) || state.mode;
   const to = from === 'dough' ? 'bakers' : 'dough';
   const complete = modes[from].fields.every(f => Number.isFinite(state[f]));
   const derived = complete ? convert[from](state) : {};
@@ -447,6 +670,16 @@ function sync(k) {
   if (range) range.value = v === '' ? range.min : v;
 }
 
+function syncOpt(k) {
+  const el = $(k);
+  let v = val(k);
+  if (v != null && el.classList.contains('temp')) v = toU(v);
+  if (typeof v === 'number') v = Math.round(v * 10) / 10;
+  if (document.activeElement !== el) el.value = v ?? '';
+  const range = document.querySelector(`[data-for="${k}"]`);
+  if (range) range.value = v ?? range.min;
+}
+
 function setMode(mode) {
   state.mode = mode;
   for (const t of document.querySelectorAll('[role=tab]')) t.setAttribute('aria-selected', String(t.dataset.mode === mode));
@@ -455,44 +688,186 @@ function setMode(mode) {
   render();
 }
 
+// Anything that changes the recipe without going through set().
+function recipeChanged() {
+  delete state.recipe; delete state.preset;
+  mirror(modes[state.mode].fields[0]);
+  save();
+  render();
+}
+
 for (const k of fields) {
   $(k).addEventListener('input', e => set(k, parseFloat(e.target.value)));
   $(k).addEventListener('blur', () => sync(k));
 }
+$('starterHydration').addEventListener('input', e => { const v = parseFloat(e.target.value); if (v > 0) state.starterHydration = v; else delete state.starterHydration; syncOpt('starterHydration'); recipeChanged(); });
+$('starterHydration').addEventListener('blur', () => syncOpt('starterHydration'));
 for (const r of document.querySelectorAll('input[type=range]'))
-  r.addEventListener('input', e => set(r.dataset.for, parseFloat(e.target.value)));
+  r.addEventListener('input', e => {
+    const k = r.dataset.for, v = parseFloat(e.target.value);
+    if (k === 'starterHydration') { state.starterHydration = v; syncOpt(k); recipeChanged(); } else set(k, v);
+  });
 for (const b of document.querySelectorAll('[data-step]'))
   b.addEventListener('click', () => set('loafCount', (state.loafCount ?? 0) + Number(b.dataset.step)));
 for (const t of document.querySelectorAll('[role=tab]'))
   t.addEventListener('click', () => setMode(t.dataset.mode));
 
-const esc = t => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const n1 = n => (Math.round(n * 10) / 10).toLocaleString();
+for (const k of opts.filter(k => k !== 'starterHydration')) {
+  const el = $(k);
+  el.addEventListener('input', e => {
+    let v = parseFloat(e.target.value);
+    if (el.classList.contains('temp')) v = fromU(v);
+    setOpt(k, v);
+  });
+  el.addEventListener('blur', () => syncOpt(k));
+}
+for (const k of optSelects) $(k).addEventListener('change', e => setOpt(k, parseFloat(e.target.value)));
+$('planStart').addEventListener('change', e => setOpt('planStart', e.target.value || null));
+
+for (const b of document.querySelectorAll('[data-unit]')) b.addEventListener('click', () => { setOpt('tempUnit', b.dataset.unit); syncSegs(); syncAllOpts(); });
+for (const b of document.querySelectorAll('[data-cold]')) b.addEventListener('click', () => { setOpt('planCold', b.dataset.cold === '1'); syncSegs(); });
+function syncSegs() {
+  for (const b of document.querySelectorAll('[data-cold]')) b.setAttribute('aria-pressed', String((b.dataset.cold === '1') === val('planCold')));
+  $('coldHours').hidden = !val('planCold');
+  for (const b of document.querySelectorAll('[data-unit]')) b.setAttribute('aria-pressed', String(b.dataset.unit === unit()));
+  for (const u of document.querySelectorAll('.unit.u')) u.textContent = `°${unit()}`;
+}
+function syncAllOpts() { [...opts, ...optSelects].forEach(syncOpt); }
+
+/* Presets and vessels */
+// One dropdown for saved recipes and presets. Values are r:<id> and p:<index>.
+function renderPicker() {
+  const sel = $('preset');
+  const yours = recipes.map(r => `<option value="r:${r.id}">${esc(r.name)}</option>`).join('');
+  sel.innerHTML = '<option value="">Choose a recipe…</option>'
+    + (yours ? `<optgroup label="Yours">${yours}</optgroup>` : '')
+    + `<optgroup label="Presets">${presets.map((p, i) => `<option value="p:${i}">${esc(p.name)}</option>`).join('')}</optgroup>`;
+  sel.value = state.recipe != null ? `r:${state.recipe}` : state.preset != null ? `p:${state.preset}` : '';
+}
+$('preset').addEventListener('change', e => {
+  const [kind, id] = e.target.value.split(':');
+  if (kind === 'r') { const r = recipes.find(x => String(x.id) === id); if (r) loadRecipe(r); }
+  else if (kind === 'p') loadPreset(+id);
+});
+function loadPreset(i) {
+  const p = presets[i];
+  if (!p) return;
+  for (const k of fields) delete state[k];
+  for (const k of fields) if (k in p) state[k] = p[k];
+  delete state.starterHydration;
+  state.blend = (p.blend || []).map(x => ({ ...x }));
+  state.addins = (p.addins || []).map(x => ({ ...x }));
+  state.mode = 'bakers';
+  fields.forEach(sync); syncOpt('starterHydration'); renderRows();
+  delete state.recipe; state.preset = i;
+  mirror('b_hydration'); setMode('bakers');
+}
+$('vessel').innerHTML += vessels.map(([n, w]) => `<option value="${w}">${esc(n)} · ${w} g</option>`).join('');
+$('vessel').addEventListener('change', e => { const w = +e.target.value; if (w) set('loafGrams', w); });
+// Pickers reflect the current state: the vessel that matches the loaf weight, the preset until the recipe is edited by hand.
+function syncPickers() {
+  $('vessel').value = vessels.some(([, w]) => w === state.loafGrams) ? String(state.loafGrams) : '';
+}
+
+/* Flour blend and add-ins */
+const flourOptions = sel => Object.entries(flours).map(([k, f]) => `<option value="${k}"${k === sel ? ' selected' : ''}>${f.name}</option>`).join('');
+function renderRows() {
+  $('blendRows').innerHTML = state.blend.map((b, i) => `<div class="rrow" data-i="${i}">
+    <select class="select" aria-label="Flour type">${flourOptions(b.type)}</select>
+    <input class="num" type="number" min="0" max="100" step="1" inputmode="decimal" value="${Number.isFinite(b.pct) ? b.pct : ''}" aria-label="Share of flour"><span class="unit">%</span>
+    <button class="x" type="button" aria-label="Remove flour">×</button></div>`).join('');
+  $('addinRows').innerHTML = state.addins.map((a, i) => `<div class="rrow" data-i="${i}">
+    <input class="name" type="text" maxlength="30" placeholder="Seeds, olives, oil…" value="${esc(a.name || '')}" aria-label="Add-in name">
+    <input class="num" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="${Number.isFinite(a.pct) ? a.pct : ''}" aria-label="Percent of flour"><span class="unit">%</span>
+    <button class="x" type="button" aria-label="Remove add-in">×</button></div>`).join('');
+}
+function renderStarterMeta(r) {
+  const sh = r.sh * 100;
+  $('shHint').textContent = sh === 100 ? '100%, a liquid starter' : sh < 100 ? `${n1(sh)}%, a stiff starter` : `${n1(sh)}%, a wet starter`;
+}
+$('shToggle').addEventListener('click', () => {
+  const open = $('shBody').hidden;
+  $('shBody').hidden = !open;
+  $('shToggle').textContent = open ? 'Hide' : 'Adjust';
+  $('shToggle').setAttribute('aria-expanded', String(open));
+  if (open) $('starterHydration').focus();
+});
+if (Number.isFinite(state.starterHydration) && state.starterHydration !== 100) $('shToggle').click();
+
+function renderBlendMeta(r) {
+  const hint = $('blendHint'), s = r.blendSum;
+  hint.textContent = !state.blend.length ? 'single flour' : `adds up to ${n1(s)}%`;
+  hint.classList.toggle('warn-text', state.blend.length > 0 && Math.abs(s - 100) > .05);
+  $('absorbTip').textContent = r.absorb > .5 ? `Whole grains drink more. This blend wants roughly ${n1(r.absorb)} points more hydration than a white loaf.` : '';
+}
+$('addFlour').addEventListener('click', () => {
+  if (!state.blend.length) state.blend.push({ type: 'bread', pct: 100 });
+  else {
+    const used = new Set(state.blend.map(b => b.type));
+    const type = Object.keys(flours).find(k => !used.has(k)) || 'other';
+    const take = Math.min(20, state.blend[0].pct || 0);
+    state.blend[0].pct = (state.blend[0].pct || 0) - take;
+    state.blend.push({ type, pct: take });
+  }
+  renderRows(); recipeChanged();
+  $('blendRows').lastElementChild.querySelector('.num').focus();
+});
+$('addAddin').addEventListener('click', () => {
+  state.addins.push({ name: '', pct: 10 });
+  renderRows(); recipeChanged();
+  $('addinRows').lastElementChild.querySelector('.name').focus();
+});
+for (const [id, key] of [['blendRows', 'blend'], ['addinRows', 'addins']]) {
+  $(id).addEventListener('input', e => {
+    const row = e.target.closest('.rrow'); if (!row) return;
+    const item = state[key][+row.dataset.i];
+    if (e.target.classList.contains('num')) { const v = parseFloat(e.target.value); if (Number.isFinite(v)) item.pct = Math.max(0, v); else delete item.pct; }
+    else if (e.target.classList.contains('name')) item.name = e.target.value;
+    else item.type = e.target.value;
+    recipeChanged();
+  });
+  $(id).addEventListener('click', e => {
+    const x = e.target.closest('.x'); if (!x) return;
+    state[key].splice(+x.closest('.rrow').dataset.i, 1);
+    renderRows(); recipeChanged();
+  });
+}
+
+/* Share and print */
+function flash(btn, text, ms = 1500) {
+  const old = btn.textContent; btn.textContent = text; btn.disabled = true;
+  setTimeout(() => { btn.textContent = old; btn.disabled = false; }, ms);
+}
+/* Saved recipes */
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+const dateFmt = s => { const d = new Date(s + 'T12:00'); return Number.isNaN(d) ? s : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
 
 function renderRecipes() {
-  const list = $('recipeList');
-  if (!recipes.length) { list.innerHTML = '<li class="recipe-empty">Nothing saved yet. Fill in a recipe and give it a name.</li>'; return; }
-  list.innerHTML = recipes.map(r => `<li data-id="${r.id}"${r.id === state.recipe ? ' class="active"' : ''}>
-    <button type="button" class="load"><span>${esc(r.name)}</span>
-      <span class="meta">${n1(r.b_hydration)}% · ${n1(r.b_starter)}% · ${n1(r.b_salt)}% · ${r.loafCount} × ${r.loafGrams} g</span></button>
-    <button type="button" class="del" aria-label="Delete ${esc(r.name)}">×</button>
-  </li>`).join('');
+  renderPicker();
+  const r = recipes.find(x => x.id === state.recipe);
+  $('delBtn').hidden = !r;
+  $('delBtn').textContent = r?.log?.length ? 'Delete with log' : 'Delete';
+  if (!$('journal').hidden) renderJournal();
 }
 
 function loadRecipe(r) {
-  for (const k of fields) { if (Number.isFinite(r[k])) state[k] = r[k]; else delete state[k]; }
-  state.recipe = r.id;
-  fields.forEach(sync);
+  for (const k of recipeKeys) { if (Number.isFinite(r[k])) state[k] = r[k]; else delete state[k]; }
+  state.blend = clean(r.blend).map(x => ({ ...x }));
+  state.addins = clean(r.addins).map(x => ({ ...x }));
+  state.recipe = r.id; delete state.preset;
+  fields.forEach(sync); syncOpt('starterHydration'); renderRows();
+  mirror(modes[modes[r.mode] ? r.mode : state.mode].fields[0]);
   setMode(modes[r.mode] ? r.mode : state.mode);
 }
 
 function saveRecipe(name) {
-  const data = { name, mode: state.mode };
-  for (const k of fields) data[k] = state[k];
+  const data = { name, mode: state.mode, blend: state.blend.map(x => ({ ...x })), addins: state.addins.map(x => ({ ...x })) };
+  for (const k of recipeKeys) if (Number.isFinite(state[k])) data[k] = state[k];
   const i = recipes.findIndex(r => r.name.toLowerCase() === name.toLowerCase());
-  if (i >= 0) recipes[i] = { ...data, id: recipes[i].id }; else recipes.push({ ...data, id: Date.now() });
-  state.recipe = (i >= 0 ? recipes[i] : recipes[recipes.length - 1]).id;
-  saveRecipes(); save(); renderRecipes();
+  if (i >= 0) recipes[i] = { ...data, id: recipes[i].id, log: recipes[i].log || [] }; else recipes.push({ ...data, id: Date.now(), log: [] });
+  state.recipe = (i >= 0 ? recipes[i] : recipes[recipes.length - 1]).id; delete state.preset;
+  saveRecipes(); save(); render();
   $('recipeName').value = '';
 }
 
@@ -501,38 +876,165 @@ $('saveForm').addEventListener('submit', e => {
   const name = $('recipeName').value.trim();
   if (name && calc(state.mode, state).ready) saveRecipe(name);
 });
-$('recipeList').addEventListener('click', e => {
-  const li = e.target.closest('li[data-id]'); if (!li) return;
-  const r = recipes.find(x => String(x.id) === li.dataset.id);
-  const del = e.target.closest('.del');
-  if (!del) return loadRecipe(r);
-  if (!del.classList.contains('confirm')) {
-    del.classList.add('confirm'); del.textContent = 'Delete?';
-    setTimeout(() => { del.classList.remove('confirm'); del.textContent = '×'; }, 3000);
+$('delBtn').addEventListener('click', () => {
+  const btn = $('delBtn'), r = recipes.find(x => x.id === state.recipe);
+  if (!r) return;
+  if (!btn.classList.contains('confirm')) {
+    btn.classList.add('confirm'); btn.textContent = 'Delete?';
+    setTimeout(() => { btn.classList.remove('confirm'); renderRecipes(); }, 3000);
     return;
   }
+  btn.classList.remove('confirm');
   recipes.splice(recipes.indexOf(r), 1);
-  if (state.recipe === r.id) delete state.recipe;
-  saveRecipes(); save(); renderRecipes();
+  delete state.recipe;
+  saveRecipes(); save(); render();
 });
 
+/* Bake log view */
+let logFilter = '';
+const options = (items, cur) => items.map(([v, label]) => `<option value="${v}"${String(v) === String(cur) ? ' selected' : ''}>${label}</option>`).join('');
+function renderJournal() {
+  const form = $('logForm'), counted = recipes.map(r => [r.id, `${esc(r.name)}${r.log?.length ? ` (${r.log.length})` : ''}`]);
+  const rid = form.rid.value || state.recipe || recipes[0]?.id;
+  form.rid.innerHTML = options(recipes.map(r => [r.id, esc(r.name)]), rid);
+  if (!form.r.options.length) form.r.innerHTML = options([5, 4, 3, 2, 1].map(n => [n, stars(n)]), 4);
+  if (!form.d.value) form.d.value = today();
+  form.querySelector('.save-btn').disabled = !recipes.length;
+  form.n.placeholder = recipes.length ? 'How did it go?' : 'Save a recipe first, then log bakes here';
+  if (!recipes.some(r => String(r.id) === logFilter)) logFilter = '';
+  $('logFilter').innerHTML = options([['', 'All recipes'], ...counted], logFilter);
+  const all = recipes.flatMap(r => (r.log || []).map((e, i) => ({ ...e, rid: r.id, i, name: r.name })))
+    .filter(e => !logFilter || String(e.rid) === logFilter)
+    .sort((a, b) => b.d.localeCompare(a.d) || b.i - a.i);
+  $('entries').innerHTML = all.map(e => `<li>
+    <span class="date">${dateFmt(e.d)}</span><span class="stars" aria-label="${e.r} of 5">${stars(e.r)}</span>
+    <div class="body"><b>${esc(e.name)}</b>${e.n ? `<div class="n">${esc(e.n)}</div>` : ''}</div>
+    <button type="button" class="x" data-rid="${e.rid}" data-i="${e.i}" aria-label="Delete entry">×</button></li>`).join('')
+    || `<li><span class="none">${recipes.length ? 'No bakes logged yet.' : 'Nothing here until you save a recipe and log a bake.'}</span></li>`;
+}
+function showLog(on) {
+  document.body.classList.toggle('log-view', on);
+  $('journal').hidden = !on;
+  if (on) { renderJournal(); scrollTo(0, 0); }
+}
+$('logOpen').addEventListener('click', () => { location.hash = 'log'; });
+$('logBack').addEventListener('click', () => { location.hash = ''; });
+addEventListener('hashchange', () => showLog(location.hash === '#log'));
+$('logFilter').addEventListener('change', e => { logFilter = e.target.value; renderJournal(); });
+$('logForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target, r = recipes.find(x => String(x.id) === f.rid.value);
+  if (!r) return;
+  (r.log ||= []).unshift({ d: f.d.value || today(), r: +f.r.value, n: f.n.value.trim() });
+  f.n.value = '';
+  saveRecipes(); renderJournal();
+});
+$('entries').addEventListener('click', e => {
+  const x = e.target.closest('.x'); if (!x) return;
+  const r = recipes.find(r => String(r.id) === x.dataset.rid);
+  if (!r) return;
+  r.log.splice(+x.dataset.i, 1); saveRecipes(); renderJournal();
+});
+
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('exportBtn').addEventListener('click', () => download('sourdough-recipes.json', JSON.stringify({ recipes }, null, 2), 'application/json'));
+$('importBtn').addEventListener('click', () => $('importFile').click());
+$('importFile').addEventListener('change', async e => {
+  const file = e.target.files[0]; e.target.value = '';
+  if (!file) return;
+  try {
+    const j = JSON.parse(await file.text());
+    const list = Array.isArray(j) ? j : j.recipes;
+    if (!Array.isArray(list)) throw new Error();
+    let n = 0;
+    for (const r of list) {
+      if (!r || typeof r.name !== 'string' || !r.name.trim()) continue;
+      const i = recipes.findIndex(x => x.name.toLowerCase() === r.name.toLowerCase());
+      const rec = { ...r, name: r.name.slice(0, 40), blend: clean(r.blend), addins: clean(r.addins), log: clean(r.log), id: i >= 0 ? recipes[i].id : Date.now() + n };
+      if (i >= 0) recipes[i] = rec; else recipes.push(rec);
+      n++;
+    }
+    saveRecipes(); renderRecipes(); flash($('importBtn'), `Imported ${n}`);
+  } catch { flash($('importBtn'), 'Not a recipe file'); }
+});
+
+/* Schedule */
+let plan = null, timers = [];
+const localIso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const defaultStart = () => { const d = new Date(); d.setSeconds(0, 0); d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15); return localIso(d); };
+const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+const tFmt = (t, ref) => new Date(t).toLocaleString([], sameDay(t, ref) ? { hour: 'numeric', minute: '2-digit' } : { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+
+function renderPlan(r) {
+  const startStr = state.planStart || defaultStart();
+  if (document.activeElement !== $('planStart')) $('planStart').value = startStr;
+  const start = new Date(startStr).getTime();
+  if (!Number.isFinite(start)) { $('steps').innerHTML = ''; $('planSum').textContent = 'Pick a start time.'; return; }
+  const temp = val('planTemp');
+  plan = schedule({ start, temp, inoculation: r.ready ? r.bakers.starter : .2, autolyse: val('planAutolyse'), folds: val('planFolds') ?? 0, foldEvery: val('planEvery'), retard: val('planCold') ? val('planRetard') || 0 : 0 });
+  const now = Date.now();
+  $('steps').innerHTML = plan.steps.map(s => `<li${s.at < now - 60000 ? ' class="past"' : ''}><time datetime="${new Date(s.at).toISOString()}">${tFmt(s.at, start)}</time><div><b>${s.label}</b>${s.detail ? `<div class="d">${s.detail}</div>` : ''}</div></li>`).join('');
+  $('coldHint').textContent = val('planCold') ? 'shape, then fridge' : 'proof at room temp, bake today';
+  $('planSum').textContent = `Bulk about ${fmtH(plan.bulk)} at ${tempFmt(temp)}${r.ready ? ` with ${pct(r.bakers.starter)} starter` : ''}. Bread is out ${sameDay(plan.end, start) ? 'at' : ''} ${tFmt(plan.end, start)}.`;
+  if (timers.length) armNotifications();
+}
+
+function armNotifications() {
+  timers.forEach(clearTimeout);
+  const now = Date.now();
+  timers = plan.steps.filter(s => s.at > now).map(s => setTimeout(() => new Notification(s.label, { body: s.detail || '', icon: 'apple-touch-icon.png' }), s.at - now));
+  $('planNotify').textContent = timers.length ? `Notifying (${timers.length}) · stop` : 'Notify me';
+}
+$('planNotify').addEventListener('click', async () => {
+  if (timers.length) { timers.forEach(clearTimeout); timers = []; $('planNotify').textContent = 'Notify me'; return; }
+  if (!('Notification' in window)) return flash($('planNotify'), 'Not supported here');
+  if (await Notification.requestPermission() !== 'granted') return flash($('planNotify'), 'Notifications blocked');
+  armNotifications();
+});
+$('planIcs').addEventListener('click', () => {
+  if (!plan) return;
+  const stamp = t => new Date(t).toISOString().replace(/[-:]|\.\d{3}/g, '');
+  const text = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Sourdough Calculator//EN',
+    ...plan.steps.flatMap((s, i) => ['BEGIN:VEVENT', `UID:${s.at}-${i}@sourdough-calculator`, `DTSTAMP:${stamp(Date.now())}`, `DTSTART:${stamp(s.at)}`, `DTEND:${stamp(s.at + 15 * 60000)}`,
+      `SUMMARY:Sourdough: ${s.label}`, `DESCRIPTION:${s.detail || ''}`, 'BEGIN:VALARM', 'TRIGGER:PT0S', 'ACTION:DISPLAY', `DESCRIPTION:${s.label}`, 'END:VALARM', 'END:VEVENT']),
+    'END:VCALENDAR'].join('\r\n');
+  download('sourdough-bake.ics', text, 'text/calendar');
+});
+
+/* Collapsible cards */
+const mobile = matchMedia('(max-width: 859px)');
 for (const card of document.querySelectorAll('.collapsible')) {
   const key = `${COLLAPSE_KEY}:${card.dataset.key}`;
   const btn = card.querySelector('.toggle');
-  const setCollapsed = c => {
+  const allowed = () => card.classList.contains('always') || mobile.matches;
+  const setCollapsed = (c, persist = true) => {
     card.classList.toggle('collapsed', c);
     btn.setAttribute('aria-expanded', String(!c));
-    try { localStorage.setItem(key, c ? '1' : ''); } catch {}
+    if (persist) try { localStorage.setItem(key, c ? '1' : ''); } catch {}
   };
-  btn.addEventListener('click', () => { if (matchMedia('(max-width: 859px)').matches) setCollapsed(!card.classList.contains('collapsed')); });
-  try { if (localStorage.getItem(key)) setCollapsed(true); } catch {}
+  const stored = () => { try { return !!localStorage.getItem(key); } catch { return false; } };
+  btn.addEventListener('click', () => { if (allowed()) setCollapsed(!card.classList.contains('collapsed')); });
+  mobile.addEventListener('change', () => setCollapsed(allowed() && stored(), false));
+  if (allowed() && stored()) setCollapsed(true, false);
 }
 
 fields.forEach(sync);
+syncAllOpts();
+syncSegs();
+renderRows();
 const other = state.mode === 'dough' ? 'bakers' : 'dough';
 const seeded = [state.mode, other].find(m => modes[m].fields.every(f => Number.isFinite(state[f])));
 if (seeded) mirror(modes[seeded].fields[0]);
 setMode(state.mode);
+showLog(location.hash === '#log');
+setInterval(() => { if (plan) renderPlan(calc(state.mode, state)); }, 60000);
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
 </html>

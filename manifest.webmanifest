@@ -1,0 +1,14 @@
+{
+  "name": "Sourdough Calculator",
+  "short_name": "Sourdough",
+  "description": "Scale a sourdough recipe by loaf weight and count.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4ebdc",
+  "theme_color": "#b4552a",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
