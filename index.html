@@ -461,7 +461,7 @@ body.empty .empty-note { display: block; }
         <div class="tool-grid">
           <div class="field">
             <div class="field-head"><label for="planStart">Start</label><span class="hint">when you mix</span></div>
-            <input class="select block" id="planStart" type="datetime-local" style="margin-top:0">
+            <div class="row" style="gap:6px"><input class="select" id="planStart" type="datetime-local" style="flex:1;min-width:0"><button class="btn" type="button" id="planNow">Now</button></div>
           </div>
           <div class="field">
             <div class="field-head"><label for="planTemp">Dough temp</label><span class="hint">during bulk</span></div>
@@ -723,6 +723,7 @@ for (const k of opts.filter(k => k !== 'starterHydration')) {
 }
 for (const k of optSelects) $(k).addEventListener('change', e => setOpt(k, parseFloat(e.target.value)));
 $('planStart').addEventListener('change', e => setOpt('planStart', e.target.value || null));
+$('planNow').addEventListener('click', () => { const d = new Date(); d.setSeconds(0, 0); setOpt('planStart', localIso(d)); });
 
 for (const b of document.querySelectorAll('[data-unit]')) b.addEventListener('click', () => { setOpt('tempUnit', b.dataset.unit); syncSegs(); syncAllOpts(); });
 for (const b of document.querySelectorAll('[data-cold]')) b.addEventListener('click', () => { setOpt('planCold', b.dataset.cold === '1'); syncSegs(); });
